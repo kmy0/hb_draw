@@ -51,11 +51,6 @@ Capsule::Capsule(const Vector3f &start, const Vector3f &end, float radius) {
         }
     }
 
-    auto get_angle = [](const Vector2f &point, const Vector2f &center) {
-        const auto delta = glm::normalize(point - center);
-        return glm::atan(delta.y, delta.x);
-    };
-
     m_top.a_min = get_angle(m_quad[0], m_top.center);
     m_top.a_max = get_angle(m_quad[1], m_top.center);
     m_bottom.a_min = get_angle(m_quad[2], m_bottom.center);

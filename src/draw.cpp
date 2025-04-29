@@ -6,6 +6,28 @@
 
 #include <vector>
 
+void draw::util::outline(ImU32 color, ImDrawFlags stroke_flags) {
+    const auto drawlist = ImGui::GetBackgroundDrawList();
+    drawlist->AddPolyline(drawlist->_Path.Data, drawlist->_Path.Size, color,
+                          stroke_flags, g_hbdraw.imgui.outline_tickness);
+    drawlist->PathClear();
+}
+
+void draw::util::fill(ImU32 color, fill_type fill_type) {
+    const auto drawlist = ImGui::GetBackgroundDrawList();
+    switch (fill_type) {
+    case fill_type::convex:
+        drawlist->AddConvexPolyFilled(drawlist->_Path.Data,
+                                      drawlist->_Path.Size, color);
+        break;
+    case fill_type::concave:
+        drawlist->AddConcavePolyFilled(drawlist->_Path.Data,
+                                       drawlist->_Path.Size, color);
+        break;
+    }
+    drawlist->PathClear();
+}
+
 void draw::util::paint(ImU32 color, bool outline, ImU32 color_outline,
                        ImDrawFlags stroke_flags, fill_type fill_type) {
     const auto drawlist = ImGui::GetBackgroundDrawList();
@@ -59,28 +81,6 @@ void draw::util::path_points(const std::vector<Vector2f *> *points,
     }
 }
 
-void draw::util::path_points_duplicate(const std::vector<Vector2f *> *points,
-                                       bool reverse) {
-    const auto drawlist = ImGui::GetBackgroundDrawList();
-    const auto size = points->size();
-    if (points->empty()) {
-        return;
-    }
-
-    const auto vec = *points;
-    if (reverse) {
-        for (int i = size - 1; i > 0; i--) {
-            drawlist->PathLineTo(*(ImVec2 *)&*vec[i]);
-            drawlist->PathLineTo(*(ImVec2 *)&*vec[i - 1]);
-        }
-    } else {
-        for (size_t i = 0; i < size - 1; i++) {
-            drawlist->PathLineTo(*(ImVec2 *)&*vec[i]);
-            drawlist->PathLineTo(*(ImVec2 *)&*vec[i + 1]);
-        }
-    }
-}
-
 void draw::draw_sphere(const Vector3f &center, float radius, ImU32 color,
                        bool outline, ImU32 color_outline) {
     const auto sphere = Sphere(center, radius);
@@ -110,30 +110,6 @@ void draw::draw_triangle(const Vector3f &pos, const Vector3f &extent,
     draw(triangle, color, outline, color_outline);
 }
 
-void draw::draw_cylinder(const Vector3f &start, const Vector3f &end,
-                         float radius, ImU32 color, bool outline,
-                         ImU32 color_outline) {
-    if (glm::length(end - start) <= 0.0f) {
-        draw_sphere(start, radius, color, outline, color_outline);
-        return;
-    }
-    const auto cylinder = Cylinder(start, end, radius);
-    if (!cylinder.m_is_ok) {
-        return;
-    }
-    draw(cylinder, color, outline, color_outline);
-}
-
-void draw::draw_ring(const Vector3f &start, const Vector3f &end, float radius_a,
-                     float radius_b, ImU32 color, bool outline,
-                     ImU32 color_outline) {
-    const auto ring = Ring(start, end, radius_a, radius_b);
-    if (!ring.m_is_ok) {
-        return;
-    }
-    draw(ring, color, outline, color_outline);
-}
-
 void draw::draw_capsule(const Vector3f &start, const Vector3f &end,
                         float radius, ImU32 color, bool outline,
                         ImU32 color_outline) {
@@ -147,6 +123,19 @@ void draw::draw_capsule(const Vector3f &start, const Vector3f &end,
         return;
     }
     draw(capsule, color, outline, color_outline);
+}
+
+void draw::draw_cylinder(const Vector3f &start, const Vector3f &end,
+                         float radius, ImU32 color, bool outline,
+                         ImU32 color_outline) {
+    if (glm::length(end - start) <= 0.0f) {
+        return;
+    }
+    const auto cylinder = Cylinder(start, end, radius);
+    if (!cylinder.m_is_ok) {
+        return;
+    }
+    draw(cylinder, color, outline, color_outline);
 };
 
 void draw::draw(const Box &shape, ImU32 color, bool outline,
@@ -229,227 +218,25 @@ void draw::draw(const Cylinder &shape, ImU32 color, bool outline,
         return;
     }
 
-    const auto drawlist = ImGui::GetBackgroundDrawList();
-    const auto base_ellipse = shape.m_top_ellipse_base.empty()
-                                  ? &shape.m_bottom_ellipse_base
-                                  : &shape.m_top_ellipse_base;
-    const std::vector<Vector2f *> *face_ellipse1, *face_ellipse2;
-    if (!shape.m_top_ellipse_face.empty()) {
-        face_ellipse1 = &shape.m_top_ellipse_face;
-        face_ellipse2 = &shape.m_bottom_ellipse_face;
-        if (shape.m_top_ellipse_base.empty()) {
-            face_ellipse1 = &shape.m_bottom_ellipse_face;
-            face_ellipse2 = &shape.m_top_ellipse_face;
-        }
+    if (!shape.m_cap.empty()) {
+        util::path_points(&shape.m_cap);
+        util::paint(color, outline, color_outline);
+    }
 
-        auto size = face_ellipse1->size();
-        for (size_t i = 0; i < size - 1; i++) {
-            drawlist->AddQuadFilled(*(ImVec2 *)&*(*face_ellipse1)[i],
-                                    *(ImVec2 *)&*(*face_ellipse1)[i + 1],
-                                    *(ImVec2 *)&*(*face_ellipse2)[i + 1],
-                                    *(ImVec2 *)&*(*face_ellipse2)[i], color);
+    if (!shape.m_body.empty()) {
+        const auto drawlist = ImGui::GetBackgroundDrawList();
+        const auto size = shape.m_body.size();
+        for (size_t i = 0; i < size / 2; i++) {
+            auto j = size - 1 - i;
+            drawlist->AddQuadFilled(*(ImVec2 *)&*shape.m_body[i],
+                                    *(ImVec2 *)&*shape.m_body[i + 1],
+                                    *(ImVec2 *)&*shape.m_body[j - 1],
+                                    *(ImVec2 *)&*shape.m_body[j], color);
         }
 
         if (outline) {
-            util::path_points(face_ellipse1);
-            util::path_points(face_ellipse2, true);
-            drawlist->AddPolyline(drawlist->_Path.Data, drawlist->_Path.Size,
-                                  color_outline, 1,
-                                  g_hbdraw.imgui.outline_tickness);
-            drawlist->PathClear();
-        }
-
-        if (!base_ellipse->empty()) {
-            util::path_points(face_ellipse1);
-            util::path_points(base_ellipse);
-            util::paint(color, outline, color_outline, 1,
-                        util::fill_type::convex);
-        }
-    } else {
-        util::path_points(base_ellipse);
-        util::paint(color, outline, color_outline, 0, util::fill_type::convex);
-    }
-}
-
-void draw::draw(const Ring &shape, ImU32 color, bool outline,
-                ImU32 color_outline) {
-    if (!shape.m_is_ok) {
-        return;
-    }
-    const auto drawlist = ImGui::GetBackgroundDrawList();
-    const std::vector<Vector2f *> *base_ellipse_outer, *base_outer,
-        *base_ellipse_inner, *base_inner, *face_ellipse_outer1,
-        *face_ellipse_outer2, *face_ellipse_inner1, *face_ellipse_inner2;
-    const Vector2f *center;
-
-    if (shape.m_outer_cylinder->m_top_ellipse_base.empty()) {
-        base_ellipse_outer = &shape.m_outer_cylinder->m_bottom_ellipse_base;
-        base_outer = &shape.m_outer_cylinder->m_bottom_base;
-        base_ellipse_inner = &shape.m_inner_cylinder->m_bottom_ellipse_base;
-        base_inner = &shape.m_inner_cylinder->m_bottom_base;
-        center = &shape.m_end2f;
-    } else {
-        base_ellipse_outer = &shape.m_outer_cylinder->m_top_ellipse_base;
-        base_outer = &shape.m_outer_cylinder->m_top_base;
-        base_ellipse_inner = &shape.m_inner_cylinder->m_top_ellipse_base;
-        base_inner = &shape.m_inner_cylinder->m_top_base;
-        center = &shape.m_start2f;
-    }
-
-    if (shape.m_outer_cylinder->m_top_ellipse_base.empty()) {
-        face_ellipse_outer1 = &shape.m_outer_cylinder->m_bottom_ellipse_face;
-        face_ellipse_outer2 = &shape.m_outer_cylinder->m_top_ellipse_face;
-        face_ellipse_inner1 = &shape.m_inner_cylinder->m_bottom_ellipse_face;
-        face_ellipse_inner2 = &shape.m_inner_cylinder->m_top_ellipse_face;
-    } else {
-        face_ellipse_outer1 = &shape.m_outer_cylinder->m_top_ellipse_face;
-        face_ellipse_outer2 = &shape.m_outer_cylinder->m_bottom_ellipse_face;
-        face_ellipse_inner1 = &shape.m_inner_cylinder->m_top_ellipse_face;
-        face_ellipse_inner2 = &shape.m_inner_cylinder->m_bottom_ellipse_face;
-    }
-
-    // inner not visible
-    if (base_ellipse_outer->empty() && base_ellipse_inner->empty()) {
-        draw(*shape.m_outer_cylinder, color, outline, color_outline);
-        return;
-    }
-
-    // fill between inner and outer
-    {
-        const auto size = base_outer->size();
-        for (int i = 0; i <= size - 1; i++) {
-            auto j = i == size - 1 ? 0 : i + 1;
-            drawlist->AddQuadFilled(*(ImVec2 *)&*(*base_outer)[i],
-                                    *(ImVec2 *)&*(*base_outer)[j],
-                                    *(ImVec2 *)&*(*base_inner)[j],
-                                    *(ImVec2 *)&*(*base_inner)[i], color);
-        }
-    }
-
-    if (outline) {
-        util::path_points(base_inner);
-        drawlist->AddPolyline(drawlist->_Path.Data, drawlist->_Path.Size,
-                              color_outline, 0,
-                              g_hbdraw.imgui.outline_tickness);
-        drawlist->PathClear();
-        util::path_points(base_outer);
-        drawlist->AddPolyline(drawlist->_Path.Data, drawlist->_Path.Size,
-                              color_outline, 0,
-                              g_hbdraw.imgui.outline_tickness);
-        drawlist->PathClear();
-    }
-
-    // fully see through
-    if ((base_inner->size() == face_ellipse_inner1->size()) &&
-        (base_inner->size() == face_ellipse_inner2->size()) &&
-        face_ellipse_outer1->empty()) {
-
-        const auto size = base_inner->size();
-        for (int i = 0; i <= size - 1; i++) {
-            auto j = i == size - 1 ? 0 : i + 1;
-            drawlist->AddQuadFilled(
-                *(ImVec2 *)&*(*base_inner)[i], *(ImVec2 *)&*(*base_inner)[j],
-                *(ImVec2 *)&*(*face_ellipse_inner2)[j],
-                *(ImVec2 *)&*(*face_ellipse_inner2)[i], color);
-        }
-
-        if (outline) {
-            util::path_points(face_ellipse_inner2);
-            drawlist->AddPolyline(drawlist->_Path.Data, drawlist->_Path.Size,
-                                  color_outline, 0,
-                                  g_hbdraw.imgui.outline_tickness);
-            drawlist->PathClear();
-        }
-    }
-    // inner + outer
-    else {
-        // outer
-        if (!face_ellipse_outer1->empty()) {
-            auto size = face_ellipse_outer1->size();
-            for (size_t i = 0; i < size - 1; i++) {
-                drawlist->AddQuadFilled(
-                    *(ImVec2 *)&*(*face_ellipse_outer1)[i],
-                    *(ImVec2 *)&*(*face_ellipse_outer1)[i + 1],
-                    *(ImVec2 *)&*(*face_ellipse_outer2)[i + 1],
-                    *(ImVec2 *)&*(*face_ellipse_outer2)[i], color);
-            }
-
-            if (outline) {
-                util::path_points(face_ellipse_outer1);
-                drawlist->PathLineTo(*(ImVec2 *)&*face_ellipse_outer2->back());
-                util::path_points(face_ellipse_outer2, true);
-                drawlist->PathLineTo(*(ImVec2 *)&*(*face_ellipse_outer1)[0]);
-                drawlist->AddPolyline(drawlist->_Path.Data,
-                                      drawlist->_Path.Size, color_outline, 0,
-                                      g_hbdraw.imgui.outline_tickness);
-                drawlist->PathClear();
-            }
-        }
-
-        // inner
-        std::vector<Vector2f *> face_ellipse_inner2_trim;
-        shape.remove_intersections(*center, *base_inner, *face_ellipse_inner2,
-                                   face_ellipse_inner2_trim);
-
-        if (face_ellipse_inner2_trim.empty()) {
-            util::path_points(base_inner);
-            drawlist->AddConvexPolyFilled(drawlist->_Path.Data,
-                                          drawlist->_Path.Size, color);
-            drawlist->PathClear();
-            return;
-        }
-
-        const size_t idx1 = shape.get_intersection(*face_ellipse_inner2_trim[0],
-                                                   *base_ellipse_inner, true);
-        const size_t idx2 = shape.get_intersection(
-            *face_ellipse_inner2_trim.back(), *base_ellipse_inner);
-
-        util::path_points_duplicate(&face_ellipse_inner2_trim);
-        drawlist->PathLineToMergeDuplicate(
-            *(ImVec2 *)&*face_ellipse_inner2_trim.back());
-        drawlist->PathLineTo(*(ImVec2 *)&*(*base_ellipse_inner)[0]);
-        util::path_points_duplicate(face_ellipse_inner1, true);
-        drawlist->PathLineTo(*(ImVec2 *)&*base_ellipse_inner->back());
-        drawlist->AddConcavePolyFilled(drawlist->_Path.Data,
-                                       drawlist->_Path.Size, color);
-        drawlist->PathClear();
-
-        if (outline) {
-            drawlist->AddLine(*(ImVec2 *)&*(*base_ellipse_inner)[idx1],
-                              *(ImVec2 *)&*face_ellipse_inner2_trim[0],
-                              color_outline);
-            drawlist->AddLine(*(ImVec2 *)&*(*base_ellipse_inner)[idx2],
-                              *(ImVec2 *)&*face_ellipse_inner2_trim.back(),
-                              color_outline);
-            drawlist->PathClear();
-        }
-
-        drawlist->PathLineTo(*(ImVec2 *)&*face_ellipse_inner2_trim[0]);
-        for (size_t i = idx1; i < base_ellipse_inner->size(); i++) {
-            drawlist->PathLineTo(*(ImVec2 *)&*(*base_ellipse_inner)[i]);
-        }
-        drawlist->PathLineTo(*(ImVec2 *)&*face_ellipse_inner2_trim[0]);
-        drawlist->AddConvexPolyFilled(drawlist->_Path.Data,
-                                      drawlist->_Path.Size, color);
-        drawlist->PathClear();
-
-        drawlist->PathLineToMergeDuplicate(
-            *(ImVec2 *)&*face_ellipse_inner2_trim.back());
-        for (size_t i = 0; i <= idx2; i++) {
-            drawlist->PathLineTo(*(ImVec2 *)&*(*base_ellipse_inner)[i]);
-        }
-        drawlist->PathLineToMergeDuplicate(
-            *(ImVec2 *)&*face_ellipse_inner2_trim.back());
-        drawlist->AddConvexPolyFilled(drawlist->_Path.Data,
-                                      drawlist->_Path.Size, color);
-        drawlist->PathClear();
-
-        if (outline) {
-            util::path_points(&face_ellipse_inner2_trim);
-            drawlist->AddPolyline(drawlist->_Path.Data, drawlist->_Path.Size,
-                                  color_outline, 0,
-                                  g_hbdraw.imgui.outline_tickness);
-            drawlist->PathClear();
+            util::path_points(&shape.m_body);
+            util::outline(color_outline);
         }
     }
 }

@@ -144,7 +144,7 @@ set(hb_draw_SOURCES
 	"src/shape/box.cpp"
 	"src/shape/capsule.cpp"
 	"src/shape/cylinder.cpp"
-	"src/shape/ring.cpp"
+	"src/shape/cylinder_base.cpp"
 	"src/shape/sphere.cpp"
 	"src/shape/triangle.cpp"
 	"src/draw.h"

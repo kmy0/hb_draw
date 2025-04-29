@@ -90,7 +90,6 @@ void on_lua_state_created(lua_State *l) {
 
     auto hb_draw = lua.create_table();
     hb_draw["cylinder"] = new_frame_wrapper(draw::draw_cylinder);
-    hb_draw["ring"] = new_frame_wrapper(draw::draw_ring);
     hb_draw["box"] = new_frame_wrapper(draw::draw_box);
     hb_draw["triangle"] = new_frame_wrapper(draw::draw_triangle);
     hb_draw["capsule"] = new_frame_wrapper(draw::draw_capsule);

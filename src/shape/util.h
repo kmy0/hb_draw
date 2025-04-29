@@ -1,11 +1,13 @@
 #pragma once
 
+#include "imgui.h"
 #include "reframework/Math.hpp"
 
 #include "plugin.h"
 #include "scene.h"
 
 #include <optional>
+#include <vector>
 
 inline bool is_frontface(const Vector2f &a, const Vector2f &b,
                          const Vector2f &c) {
@@ -51,18 +53,34 @@ get_screen_corners(const std::array<Vector4f, S> &points,
     return ret;
 }
 
-inline bool intersect(const Vector2f &p1, const Vector2f &p2,
-                      const Vector2f &q1, const Vector2f &q2) {
-    return (((q1.x - p1.x) * (p2.y - p1.y) - (q1.y - p1.y) * (p2.x - p1.x)) *
-                ((q2.x - p1.x) * (p2.y - p1.y) -
-                 (q2.y - p1.y) * (p2.x - p1.x)) <
-            0) &&
-           (((p1.x - q1.x) * (q2.y - q1.y) - (p1.y - q1.y) * (q2.x - q1.x)) *
-                ((p2.x - q1.x) * (q2.y - q1.y) -
-                 (p2.y - q1.y) * (q2.x - q1.x)) <
-            0);
+inline bool is_point_ok(const Vector2f p) {
+    const auto screen_size = g_hbdraw.camera.screen_size;
+    return std::abs(p.x - screen_size[0]) < screen_size[0] * 2 &&
+           std::abs(p.y - screen_size[1]) < screen_size[1] * 2;
 }
 
-inline bool is_point_ok(const Vector2f p) {
-    return std::abs(p.x) < 10000 && std::abs(p.y) < 10000;
+inline float get_angle(const Vector2f &point, const Vector2f &center) {
+    const auto delta = glm::normalize(point - center);
+    return glm::atan(delta.y, delta.x);
+}
+
+inline bool path_ellipse(const Vector2f &center, float radius_x, float radius_y,
+                         float rot, float a_min, float a_max, int num_segments,
+                         std::vector<Vector2f> &out) {
+    const auto drawlist = ImGui::GetBackgroundDrawList();
+    drawlist->PathEllipticalArcTo(*(ImVec2 *)&center,
+                                  ImVec2(radius_x, radius_y), rot, a_min, a_max,
+                                  num_segments);
+    std::vector<Vector2f> ret(drawlist->_Path.Size);
+
+    for (size_t i = 0; i < drawlist->_Path.Size; i++) {
+        const auto im_p = drawlist->_Path.Data[i];
+        const auto p = Vector2f(im_p.x, im_p.y);
+        if (!is_point_ok(p)) {
+            return false;
+        }
+        out.push_back(p);
+    }
+    drawlist->PathClear();
+    return true;
 }
