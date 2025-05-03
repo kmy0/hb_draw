@@ -40,6 +40,7 @@ bool initialize_imgui() {
     }
 
     ImGui::GetStyle().AntiAliasedFill = false;
+    ImGui::GetStyle().AntiAliasedLines = false;
     g_hbdraw.imgui.initialized = true;
     return true;
 }
@@ -93,6 +94,7 @@ void on_lua_state_created(lua_State *l) {
     hb_draw["box"] = new_frame_wrapper(draw::draw_box);
     hb_draw["triangle"] = new_frame_wrapper(draw::draw_triangle);
     hb_draw["capsule"] = new_frame_wrapper(draw::draw_capsule);
+    hb_draw["sliced_cylinder"] = new_frame_wrapper(draw::draw_sliced_cylinder);
     hb_draw["sphere"] = new_frame_wrapper(draw::draw_sphere);
     hb_draw["set_num_segments"] = [&](unsigned num) {
         g_hbdraw.imgui.num_segments = num;

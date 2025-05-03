@@ -81,6 +81,26 @@ void draw::util::path_points(const std::vector<Vector2f *> *points,
     }
 }
 
+void draw::util::path_points(const std::vector<Vector2f> &points,
+                             bool reverse) {
+    const auto drawlist = ImGui::GetBackgroundDrawList();
+    const auto size = points.size();
+    if (points.empty()) {
+        return;
+    }
+
+    const auto vec = points;
+    if (reverse) {
+        for (int i = size - 1; i >= 0; i--) {
+            drawlist->PathLineToMergeDuplicate(*(ImVec2 *)&vec[i]);
+        }
+    } else {
+        for (size_t i = 0; i < size; i++) {
+            drawlist->PathLineToMergeDuplicate(*(ImVec2 *)&vec[i]);
+        }
+    }
+}
+
 void draw::draw_sphere(const Vector3f &center, float radius, ImU32 color,
                        bool outline, ImU32 color_outline) {
     const auto sphere = Sphere(center, radius);
@@ -137,6 +157,23 @@ void draw::draw_cylinder(const Vector3f &start, const Vector3f &end,
     }
     draw(cylinder, color, outline, color_outline);
 };
+
+void draw::draw_sliced_cylinder(const Vector3f &start, const Vector3f &end,
+                                float radius, const Vector3f &direction,
+                                float degrees, ImU32 color, bool outline,
+                                ImU32 color_outline) {
+    if (glm::length(end - start) <= 0.0f) {
+        draw_sphere(start, radius, color, outline, color_outline);
+        return;
+    }
+
+    const auto sliced_cylinder =
+        SlicedCylinder(start, end, radius, direction, degrees);
+    if (!sliced_cylinder.m_is_ok) {
+        return;
+    }
+    draw(sliced_cylinder, color, outline, color_outline);
+}
 
 void draw::draw(const Box &shape, ImU32 color, bool outline,
                 ImU32 color_outline) {
@@ -218,24 +255,24 @@ void draw::draw(const Cylinder &shape, ImU32 color, bool outline,
         return;
     }
 
-    if (!shape.m_cap.empty()) {
-        util::path_points(&shape.m_cap);
+    if (!shape.m_cap->empty()) {
+        util::path_points(*shape.m_cap);
         util::paint(color, outline, color_outline);
     }
 
-    if (!shape.m_body.empty()) {
+    if (!shape.m_top_el.empty()) {
         const auto drawlist = ImGui::GetBackgroundDrawList();
-        const auto size = shape.m_body.size();
-        for (size_t i = 0; i < size / 2; i++) {
-            auto j = size - 1 - i;
-            drawlist->AddQuadFilled(*(ImVec2 *)&*shape.m_body[i],
-                                    *(ImVec2 *)&*shape.m_body[i + 1],
-                                    *(ImVec2 *)&*shape.m_body[j - 1],
-                                    *(ImVec2 *)&*shape.m_body[j], color);
+        const auto size = shape.m_top_el.size() - 1;
+        for (size_t i = 0; i < size; i++) {
+            drawlist->AddQuadFilled(*(ImVec2 *)&*shape.m_top_el[i],
+                                    *(ImVec2 *)&*shape.m_top_el[i + 1],
+                                    *(ImVec2 *)&*shape.m_bottom_el[i + 1],
+                                    *(ImVec2 *)&*shape.m_bottom_el[i], color);
         }
 
         if (outline) {
-            util::path_points(&shape.m_body);
+            util::path_points(&shape.m_top_el);
+            util::path_points(&shape.m_bottom_el, true);
             util::outline(color_outline);
         }
     }
@@ -265,6 +302,48 @@ void draw::draw(const Capsule &shape, ImU32 color, bool outline,
         drawlist->PathArcTo(*(ImVec2 *)&shape.m_bottom.center,
                             shape.m_bottom.radius, shape.m_bottom.a_min,
                             shape.m_bottom.a_max, g_hbdraw.imgui.num_segments);
-        util::paint(color, outline, color_outline, 1, util::fill_type::convex);
+        util::paint(color, outline, color_outline);
+    }
+}
+
+void draw::draw(const SlicedCylinder &shape, ImU32 color, bool outline,
+                ImU32 color_outline) {
+    if (!shape.m_is_ok) {
+        return;
+    }
+
+    const auto drawlist = ImGui::GetBackgroundDrawList();
+    const auto size = shape.m_top_el.size() - 1;
+
+    for (size_t i = 0; i < size; i++) {
+        drawlist->AddQuadFilled(*(ImVec2 *)&shape.m_top_el[i],
+                                *(ImVec2 *)&shape.m_top_el[i + 1],
+                                *(ImVec2 *)&shape.m_bottom_el[i + 1],
+                                *(ImVec2 *)&shape.m_bottom_el[i], color);
+    }
+
+    if (outline) {
+        if (shape.m_slice_angle >= glm::radians(180.0f)) {
+            util::path_points(shape.m_top_el);
+            util::outline(color_outline);
+            util::path_points(shape.m_bottom_el, true);
+            util::outline(color_outline);
+        } else {
+            util::path_points(shape.m_top_el);
+            util::path_points(shape.m_bottom_el, true);
+            util::outline(color_outline);
+        }
+
+        if (shape.m_right_outline) {
+            drawlist->AddLine(*(ImVec2 *)&shape.m_right_outline->first,
+                              *(ImVec2 *)&shape.m_right_outline->second,
+                              color_outline);
+        }
+
+        if (shape.m_left_outline) {
+            drawlist->AddLine(*(ImVec2 *)&shape.m_left_outline->first,
+                              *(ImVec2 *)&shape.m_left_outline->second,
+                              color_outline);
+        }
     }
 }

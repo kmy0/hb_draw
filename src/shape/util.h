@@ -64,6 +64,23 @@ inline float get_angle(const Vector2f &point, const Vector2f &center) {
     return glm::atan(delta.y, delta.x);
 }
 
+inline float clamp_angle(float angle) {
+    angle = glm::mod(angle, glm::radians(360.0f));
+
+    if (angle < 0.0f) {
+        angle += glm::radians(360.0f);
+    }
+
+    return angle;
+}
+
+inline Vector3f rotate_point(const Vector3f &point, const Vector3f &center,
+                             const Vector3f &dir, float angle) {
+    const auto rel = point - center;
+    const auto rot = glm::rotate(rel, angle, dir);
+    return rot + center;
+}
+
 inline bool path_ellipse(const Vector2f &center, float radius_x, float radius_y,
                          float rot, float a_min, float a_max, int num_segments,
                          std::vector<Vector2f> &out) {

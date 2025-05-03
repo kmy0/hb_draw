@@ -21,25 +21,17 @@ Cylinder::Cylinder(const Vector3f &start, const Vector3f &end, float radius,
     }
 
     const size_t cap_max = m_num_segments / 2;
-    std::vector<Vector2f> *cap = nullptr;
     for (size_t i = 0; i <= m_num_segments; i += 2) {
         i = i == m_num_segments ? i - 1 : i;
         size_t j = i <= cap_max ? i + cap_max : i - cap_max;
-
         if (is_frontface(m_el1[i], m_el1[i + 1], m_el1[j])) {
-            cap = &m_el1;
+            m_cap = &m_el1;
             break;
         }
 
         if (is_frontface(m_el2[j], m_el2[i + 1], m_el2[i])) {
-            cap = &m_el2;
+            m_cap = &m_el2;
             break;
-        }
-    }
-
-    if (cap) {
-        for (auto &p : *cap) {
-            m_cap.push_back(&p);
         }
     }
 
@@ -48,16 +40,14 @@ Cylinder::Cylinder(const Vector3f &start, const Vector3f &end, float radius,
     for (size_t i = 0; i <= m_num_segments; i += 2) {
         i = i == m_num_segments ? i - 1 : i;
         if (is_frontface(m_el2[i], m_el1[i + 1], m_el1[i])) {
-            m_body.insert(m_body.begin() + begin, {&m_el1[i], &m_el1[i + 1]});
-            rev.insert(rev.begin() + begin, {&m_el2[i], &m_el2[i + 1]});
+            m_top_el.insert(m_top_el.begin() + begin,
+                            {&m_el1[i], &m_el1[i + 1]});
+            m_bottom_el.insert(m_bottom_el.begin() + begin,
+                               {&m_el2[i], &m_el2[i + 1]});
             begin += 2;
         } else {
             begin = 0;
         }
-    }
-
-    for (int i = rev.size() - 1; i >= 0; i--) {
-        m_body.push_back(rev[i]);
     }
 
     m_is_ok = true;

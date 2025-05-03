@@ -145,6 +145,7 @@ set(hb_draw_SOURCES
 	"src/shape/capsule.cpp"
 	"src/shape/cylinder.cpp"
 	"src/shape/cylinder_base.cpp"
+	"src/shape/sliced_cylinder.cpp"
 	"src/shape/sphere.cpp"
 	"src/shape/triangle.cpp"
 	"src/draw.h"
@@ -179,5 +180,5 @@ target_link_libraries(hb_draw PUBLIC
 
 set(CMKR_TARGET hb_draw)
 set_target_properties(hb_draw PROPERTIES
-                      RUNTIME_OUTPUT_DIRECTORY_RELEASE ../bin
+                      RUNTIME_OUTPUT_DIRECTORY_RELEASE C:/SteamLibrary/steamapps/common/MonsterHunterWilds/reframework/plugins
 )

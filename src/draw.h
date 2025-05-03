@@ -20,6 +20,10 @@ void draw_cylinder(const Vector3f &start, const Vector3f &end, float radius,
                    ImU32 color, bool outline, ImU32 color_outline);
 void draw_capsule(const Vector3f &start, const Vector3f &end, float radius,
                   ImU32 color, bool outline, ImU32 color_outline);
+void draw_sliced_cylinder(const Vector3f &start, const Vector3f &end,
+                          float radius, const Vector3f &direction,
+                          float degrees, ImU32 color, bool outline,
+                          ImU32 color_outline);
 
 void draw(const Box &shape, ImU32 color, bool outline, ImU32 color_outline);
 void draw(const Sphere &shape, ImU32 color, bool outline, ImU32 color_outline);
@@ -28,11 +32,14 @@ void draw(const Triangle &shape, ImU32 color, bool outline,
 void draw(const Cylinder &shape, ImU32 color, bool outline,
           ImU32 color_outline);
 void draw(const Capsule &shape, ImU32 color, bool outline, ImU32 color_outline);
+void draw(const SlicedCylinder &shape, ImU32 color, bool outline,
+          ImU32 color_outline);
 } // namespace draw
 
 namespace draw::util {
 enum class fill_type { convex, concave };
 void path_points(const std::vector<Vector2f *> *points, bool reverse = false);
+void path_points(const std::vector<Vector2f> &points, bool reverse = false);
 void draw_ellipse(const ImVec2 &center, float radius_x, float radius_y,
                   float rot, float a_min, float a_max, ImU32 color,
                   int num_segments, float thickness, ImDrawFlags flags = 0);

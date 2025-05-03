@@ -1,7 +1,21 @@
 #include "reframework/Math.hpp"
 
 #include <array>
+#include <optional>
 #include <vector>
+
+struct EllipseAxis {
+    Vector3f start;
+    Vector3f end;
+};
+
+struct EllipseStruct {
+    Vector2f center;
+    float minor_radius;
+    float major_radius;
+    EllipseAxis major_axis;
+    EllipseAxis minor_axis;
+};
 
 struct Shape {
     bool m_is_ok = false;
@@ -42,22 +56,16 @@ struct Triangle : Shape {
 
 struct CylinderBase : Shape {
     CylinderBase(const Vector3f &start, const Vector3f &end, float radius,
-                 float max_distortion = 300.0f);
+                 float max_distortion = 9999.0f);
 
-    struct Base {
-        Vector2f center;
-        float minor_radius;
-        float major_radius;
-    };
-
-    Base m_top;
-    Base m_bottom;
+    EllipseStruct m_top;
+    EllipseStruct m_bottom;
     float m_angle;
     float m_max_distortion;
 
   protected:
-    bool get_base(const Vector3f &center, const Vector3f &dir, float radius,
-                  Base &out);
+    bool get_cap(const Vector3f &center, const Vector3f &dir, float radius,
+                 EllipseStruct &out);
     bool is_distorted(const Vector2f &center, const Vector2f &p1,
                       const Vector2f &p2);
 };
@@ -67,8 +75,9 @@ struct Cylinder : CylinderBase {
              unsigned num_segments = 64);
 
     bool m_is_sphere = false;
-    std::vector<Vector2f *> m_cap;
-    std::vector<Vector2f *> m_body;
+    std::vector<Vector2f> *m_cap;
+    std::vector<Vector2f *> m_top_el;
+    std::vector<Vector2f *> m_bottom_el;
     unsigned m_num_segments;
 
   protected:
@@ -85,9 +94,38 @@ struct Capsule : Shape {
         float a_min;
         float a_max;
     };
+
     Cap m_top;
     Cap m_bottom;
     float m_distance;
     std::array<Vector2f, 4> m_quad;
     bool m_is_sphere = false;
+};
+
+struct SlicedCylinder : CylinderBase {
+    SlicedCylinder(const Vector3f &start, const Vector3f &end, float radius,
+                   const Vector3f &direction, float degrees,
+                   unsigned num_segments = 64);
+
+    struct SlicedEllipseStruct : EllipseStruct {
+        float a_min;
+        float a_max;
+    };
+
+    std::vector<Vector2f> m_top_el;
+    std::vector<Vector2f> m_bottom_el;
+    std::optional<std::pair<Vector2f, Vector2f>> m_right_outline;
+    std::optional<std::pair<Vector2f, Vector2f>> m_left_outline;
+    unsigned m_num_segments;
+    float m_slice_angle;
+
+  protected:
+    void get_eye(const Vector3f &center, const Vector3f &dir,
+                 const Vector3f &eye_dir, float radius,
+                 SlicedEllipseStruct &ellipse, Vector3f &out);
+    bool get_side_outline(int side,
+                          std::optional<std::pair<Vector2f, Vector2f>> &out);
+
+    Vector3f m_eye1;
+    Vector3f m_eye2;
 };

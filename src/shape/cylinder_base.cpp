@@ -12,8 +12,8 @@ CylinderBase::CylinderBase(const Vector3f &start, const Vector3f &end,
     : m_max_distortion(max_distortion) {
     const auto dir = glm::normalize(end - start);
 
-    if (!get_base(start, dir, radius, m_top) ||
-        !get_base(end, dir, radius, m_bottom)) {
+    if (!get_cap(start, dir, radius, m_top) ||
+        !get_cap(end, dir, radius, m_bottom)) {
         return;
     }
 
@@ -21,8 +21,8 @@ CylinderBase::CylinderBase(const Vector3f &start, const Vector3f &end,
     m_is_ok = true;
 }
 
-bool CylinderBase::get_base(const Vector3f &center, const Vector3f &dir,
-                            float radius, Base &out) {
+bool CylinderBase::get_cap(const Vector3f &center, const Vector3f &dir,
+                           float radius, EllipseStruct &out) {
     const auto screen_radius = get_screen_radius(center, radius);
 
     if (!screen_radius) {
@@ -54,6 +54,10 @@ bool CylinderBase::get_base(const Vector3f &center, const Vector3f &dir,
         return false;
     }
 
+    out.major_axis.start = points3f[0];
+    out.major_axis.end = points3f[1];
+    out.minor_axis.start = points3f[2];
+    out.minor_axis.end = points3f[3];
     out.minor_radius = out.major_radius * glm::dot(dir, view);
     return true;
 }
