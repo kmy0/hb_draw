@@ -170,7 +170,13 @@ bool scene::setup_camera() {
 }
 
 bool scene::update_camera() {
-    if (is_frame_gen() || !setup_camera()) {
+    auto frame_gen = is_frame_gen();
+    if (frame_gen != g_hbdraw.camera.is_frame_gen) {
+        g_hbdraw.camera.is_frame_gen = frame_gen;
+        g_hbdraw.camera = {};
+    }
+
+    if (frame_gen || !setup_camera()) {
         return false;
     }
 
@@ -207,19 +213,16 @@ bool scene::is_frame_gen() {
     const auto &api = reframework::API::get();
     static auto upscaling_interface_type =
         api->tdb()->find_type("via.render.UpscalingInterface");
+
     if (!upscaling_interface_type) {
         return false;
     }
+
     static auto using_frame_gen_method =
         upscaling_interface_type->find_method("get_UsingFrameGeneration");
     static auto upscaling_interface =
         api->get_native_singleton("via.render.UpscalingInterface");
 
-    const auto res = using_frame_gen_method->call<bool>(
+    return using_frame_gen_method->call<bool>(
         api->sdk()->functions->get_vm_context(), upscaling_interface);
-    if (res != g_hbdraw.camera.is_frame_gen) {
-        g_hbdraw.camera = {};
-    }
-    g_hbdraw.camera.is_frame_gen = res;
-    return res;
 }
