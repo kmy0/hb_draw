@@ -1,17 +1,19 @@
 #pragma once
 
 extern "C" {
-    #include "API.h"
+#include "API.h"
 }
 
-#include <mutex>
 #include <array>
-#include <vector>
 #include <cassert>
-#include <string_view>
 #include <cstdint>
 #include <memory>
+#include <mutex>
+#include <span>
 #include <stdexcept>
+#include <string_view>
+#include <vector>
+
 
 namespace reframework {
 #pragma pack(push, 1)
@@ -24,7 +26,7 @@ struct InvokeRet {
         float f;
         uint64_t qword;
         double d;
-        void* ptr;
+        void *ptr;
     };
 
     bool exception_thrown{false};
@@ -32,11 +34,12 @@ struct InvokeRet {
 #pragma pack(pop)
 
 class API {
-private:
+  private:
     static inline std::unique_ptr<API> s_instance{};
 
-public:
+  public:
     struct TDB;
+    struct Module;
     struct TypeDefinition;
     struct Method;
     struct Field;
@@ -50,18 +53,14 @@ public:
     struct ReflectionMethod;
 
     struct LuaLock {
-        LuaLock() {
-            API::s_instance->lock_lua();
-        }
+        LuaLock() { API::s_instance->lock_lua(); }
 
-        virtual ~LuaLock() {
-            API::s_instance->unlock_lua();
-        }
+        virtual ~LuaLock() { API::s_instance->unlock_lua(); }
     };
 
-public:
+  public:
     // ALWAYS call initialize first in reframework_plugin_initialize
-    static auto& initialize(const REFrameworkPluginInitializeParam* param) {
+    static auto &initialize(const REFrameworkPluginInitializeParam *param) {
         if (param == nullptr) {
             throw std::runtime_error("param is null");
         }
@@ -75,7 +74,7 @@ public:
     }
 
     // only call this AFTER calling initialize
-    static auto& get() {
+    static auto &get() {
         if (s_instance == nullptr) {
             throw std::runtime_error("API not initialized");
         }
@@ -83,35 +82,29 @@ public:
         return s_instance;
     }
 
-public:
-    API(const REFrameworkPluginInitializeParam* param) 
-        : m_param{param},
-        m_sdk{param->sdk}
-    {
-    }
+  public:
+    API(const REFrameworkPluginInitializeParam *param)
+        : m_param{param}, m_sdk{param->sdk} {}
 
-    virtual ~API() {
+    virtual ~API() {}
 
-    }
+    inline const auto param() const { return m_param; }
 
-    inline const auto param() const {
-        return m_param;
-    }
+    inline const REFrameworkSDKData *sdk() const { return m_sdk; }
 
-    inline const REFrameworkSDKData* sdk() const {
-        return m_sdk;
-    }
-
-    inline const auto tdb() const { 
-        return (TDB*)sdk()->functions->get_tdb(); 
+    inline const auto tdb() const {
+        static const auto fn = sdk()->functions->get_tdb;
+        return (TDB *)fn();
     }
 
     inline const auto resource_manager() const {
-        return (ResourceManager*)sdk()->functions->get_resource_manager();
+        static const auto fn = sdk()->functions->get_resource_manager;
+        return (ResourceManager *)fn();
     }
 
     inline const auto reframework() const {
-        return (REFramework*)param()->functions;
+        static const auto fn = param()->functions;
+        return (REFramework *)fn;
     }
 
     void lock_lua() {
@@ -124,33 +117,65 @@ public:
         m_lua_mtx.unlock();
     }
 
-    template <typename... Args> void log_error(const char* format, Args... args) { m_param->functions->log_error(format, args...); }
-    template <typename... Args> void log_warn(const char* format, Args... args) { m_param->functions->log_warn(format, args...); }
-    template <typename... Args> void log_info(const char* format, Args... args) { m_param->functions->log_info(format, args...); }
-
-    API::VMContext* get_vm_context() const {
-        return (API::VMContext*)sdk()->functions->get_vm_context();
+    template <typename... Args>
+    void log_error(const char *format, Args... args) {
+        m_param->functions->log_error(format, args...);
+    }
+    template <typename... Args>
+    void log_warn(const char *format, Args... args) {
+        m_param->functions->log_warn(format, args...);
+    }
+    template <typename... Args>
+    void log_info(const char *format, Args... args) {
+        m_param->functions->log_info(format, args...);
     }
 
-    API::ManagedObject* typeof(const char* name) const {
-        return (API::ManagedObject*)sdk()->functions->typeof_(name);
+    API::VMContext *get_vm_context() const {
+        static const auto fn = sdk()->functions->get_vm_context;
+        return (API::VMContext *)fn();
     }
 
-    API::ManagedObject* get_managed_singleton(std::string_view name) const {
-        return (API::ManagedObject*)sdk()->functions->get_managed_singleton(name.data());
+    API::ManagedObject *typeof(const char *name) const {
+        static const auto fn = sdk()->functions->typeof_;
+        return (API::ManagedObject *)fn(name);
     }
 
-    void* get_native_singleton(std::string_view name) const {
-        return sdk()->functions->get_native_singleton(name.data());
+    API::ManagedObject *create_managed_string(const wchar_t *str) const {
+        static const auto fn = sdk()->functions->create_managed_string;
+        return (API::ManagedObject *)fn(str);
+    }
+
+    API::ManagedObject *create_managed_string_normal(const char *str) const {
+        static const auto fn = sdk()->functions->create_managed_string_normal;
+        return (API::ManagedObject *)fn(str);
+    }
+
+    API::ManagedObject *create_managed_array(API::TypeDefinition *type,
+                                             uint32_t size) const {
+        static const auto fn = sdk()->functions->create_managed_array;
+        return (API::ManagedObject *)fn(*type, size);
+    }
+
+    API::ManagedObject *get_managed_singleton(std::string_view name) const {
+        static const auto fn = sdk()->functions->get_managed_singleton;
+        return (API::ManagedObject *)fn(name.data());
+    }
+
+    void *get_native_singleton(std::string_view name) const {
+        static const auto fn = sdk()->functions->get_native_singleton;
+        return fn(name.data());
     }
 
     std::vector<REFrameworkManagedSingleton> get_managed_singletons() const {
+        static const auto fn = sdk()->functions->get_managed_singletons;
+
         std::vector<REFrameworkManagedSingleton> out{};
         out.resize(512);
 
         uint32_t count{};
 
-        auto result = sdk()->functions->get_managed_singletons(&out[0], out.size() * sizeof(REFrameworkManagedSingleton), &count);
+        auto result = fn(
+            &out[0], out.size() * sizeof(REFrameworkManagedSingleton), &count);
 
 #ifdef REFRAMEWORK_API_EXCEPTIONS
         if (result != REFRAMEWORK_ERROR_NONE) {
@@ -167,12 +192,15 @@ public:
     }
 
     std::vector<REFrameworkNativeSingleton> get_native_singletons() const {
+        static const auto fn = sdk()->functions->get_native_singletons;
+
         std::vector<REFrameworkNativeSingleton> out{};
         out.resize(512);
 
         uint32_t count{};
 
-        auto result = sdk()->functions->get_native_singletons(&out[0], out.size() * sizeof(REFrameworkNativeSingleton), &count);
+        auto result = fn(
+            &out[0], out.size() * sizeof(REFrameworkNativeSingleton), &count);
 
 #ifdef REFRAMEWORK_API_EXCEPTIONS
         if (result != REFRAMEWORK_ERROR_NONE) {
@@ -188,84 +216,187 @@ public:
         return out;
     }
 
-public:
+  public:
     struct TDB {
         operator ::REFrameworkTDBHandle() const {
             return (::REFrameworkTDBHandle)this;
         }
 
+        uint32_t get_num_modules() const {
+            static const auto fn = API::s_instance->sdk()->tdb->get_num_modules;
+            return fn(*this);
+        }
+
         uint32_t get_num_types() const {
-            return API::s_instance->sdk()->tdb->get_num_types(*this);
+            static const auto fn = API::s_instance->sdk()->tdb->get_num_types;
+            return fn(*this);
         }
 
         uint32_t get_num_methods() const {
-            return API::s_instance->sdk()->tdb->get_num_methods(*this);
+            static const auto fn = API::s_instance->sdk()->tdb->get_num_methods;
+            return fn(*this);
         }
 
         uint32_t get_num_fields() const {
-            return API::s_instance->sdk()->tdb->get_num_fields(*this);
+            static const auto fn = API::s_instance->sdk()->tdb->get_num_fields;
+            return fn(*this);
         }
 
         uint32_t get_num_properties() const {
-            return API::s_instance->sdk()->tdb->get_num_properties(*this);
+            static const auto fn =
+                API::s_instance->sdk()->tdb->get_num_properties;
+            return fn(*this);
         }
 
         uint32_t get_strings_size() const {
-            return API::s_instance->sdk()->tdb->get_strings_size(*this);
+            static const auto fn =
+                API::s_instance->sdk()->tdb->get_strings_size;
+            return fn(*this);
         }
 
         uint32_t get_raw_data_size() const {
-            return API::s_instance->sdk()->tdb->get_raw_data_size(*this);
+            static const auto fn =
+                API::s_instance->sdk()->tdb->get_raw_data_size;
+            return fn(*this);
         }
 
-        const char* get_string_database() const {
-            return API::s_instance->sdk()->tdb->get_string_database(*this);
+        const char *get_string_database() const {
+            static const auto fn =
+                API::s_instance->sdk()->tdb->get_string_database;
+            return fn(*this);
         }
 
-        uint8_t* get_raw_database() const {
-            return (uint8_t*)API::s_instance->sdk()->tdb->get_raw_database(*this);
+        uint8_t *get_raw_database() const {
+            static const auto fn =
+                API::s_instance->sdk()->tdb->get_raw_database;
+            return (uint8_t *)fn(*this);
         }
 
-        API::TypeDefinition* get_type(uint32_t index) const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->tdb->get_type(*this, index);
+        API::TypeDefinition *get_type(uint32_t index) const {
+            static const auto fn = API::s_instance->sdk()->tdb->get_type;
+            return (API::TypeDefinition *)fn(*this, index);
         }
 
-        API::TypeDefinition* find_type(std::string_view name) const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->tdb->find_type(*this, name.data());
+        API::TypeDefinition *find_type(std::string_view name) const {
+            static const auto fn = API::s_instance->sdk()->tdb->find_type;
+            return (API::TypeDefinition *)fn(*this, name.data());
         }
 
-        API::TypeDefinition* find_type_by_fqn(uint32_t fqn) const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->tdb->find_type_by_fqn(*this, fqn);
+        API::TypeDefinition *find_type_by_fqn(uint32_t fqn) const {
+            static const auto fn =
+                API::s_instance->sdk()->tdb->find_type_by_fqn;
+            return (API::TypeDefinition *)fn(*this, fqn);
         }
 
-        API::Method* get_method(uint32_t index) const {
-            return (API::Method*)API::s_instance->sdk()->tdb->get_method(*this, index);
+        API::Method *get_method(uint32_t index) const {
+            static const auto fn = API::s_instance->sdk()->tdb->get_method;
+            return (API::Method *)fn(*this, index);
         }
 
-        API::Method* find_method(std::string_view type_name, std::string_view name) const {
-            return (API::Method*)API::s_instance->sdk()->tdb->find_method(*this, type_name.data(), name.data());
+        API::Method *find_method(std::string_view type_name,
+                                 std::string_view name) const {
+            static const auto fn = API::s_instance->sdk()->tdb->find_method;
+            return (API::Method *)fn(*this, type_name.data(), name.data());
         }
 
-        API::Field* get_field(uint32_t index) const {
-            return (API::Field*)API::s_instance->sdk()->tdb->get_field(*this, index);
+        API::Field *get_field(uint32_t index) const {
+            static const auto fn = API::s_instance->sdk()->tdb->get_field;
+            return (API::Field *)fn(*this, index);
         }
 
-        API::Field* find_field(std::string_view type_name, std::string_view name) const {
-            return (API::Field*)API::s_instance->sdk()->tdb->find_field(*this, type_name.data(), name.data());
+        API::Field *find_field(std::string_view type_name,
+                               std::string_view name) const {
+            static const auto fn = API::s_instance->sdk()->tdb->find_field;
+            return (API::Field *)fn(*this, type_name.data(), name.data());
         }
 
-        API::Property* get_property(uint32_t index) const {
-            return (API::Property*)API::s_instance->sdk()->tdb->get_property(*this, index);
+        API::Property *get_property(uint32_t index) const {
+            static const auto fn = API::s_instance->sdk()->tdb->get_property;
+            return (API::Property *)fn(*this, index);
+        }
+
+        API::Module *get_module(uint32_t index) const {
+            static const auto fn = API::s_instance->sdk()->tdb->get_module;
+            return (API::Module *)fn(*this, index);
         }
     };
 
     struct REFramework {
-        operator ::REFrameworkHandle() {
-            return (::REFrameworkHandle)this;
-        }
+        operator ::REFrameworkHandle() { return (::REFrameworkHandle)this; }
 
         bool is_drawing_ui() const {
-            return API::s_instance->param()->functions->is_drawing_ui();
+            static const auto fn =
+                API::s_instance->param()->functions->is_drawing_ui;
+            return fn();
+        }
+    };
+
+    struct Module {
+        operator ::REFrameworkModuleHandle() const {
+            return (::REFrameworkModuleHandle)this;
+        }
+
+        uint16_t get_major() const {
+            static const auto fn = initialize()->get_major;
+            return fn(*this);
+        }
+
+        uint16_t get_minor() const {
+            static const auto fn = initialize()->get_minor;
+            return fn(*this);
+        }
+
+        uint16_t get_build() const {
+            static const auto fn = initialize()->get_build;
+            return fn(*this);
+        }
+
+        uint16_t get_revision() const {
+            static const auto fn = initialize()->get_revision;
+            return fn(*this);
+        }
+
+        const char *get_assembly_name() const {
+            static const auto fn = initialize()->get_assembly_name;
+            return fn(*this);
+        }
+
+        const char *get_location() const {
+            static const auto fn = initialize()->get_location;
+            return fn(*this);
+        }
+
+        const char *get_module_name() const {
+            static const auto fn = initialize()->get_module_name;
+            return fn(*this);
+        }
+
+        std::span<uint32_t> get_types() const {
+            static const auto get_num_types = initialize()->get_num_types;
+            static const auto get_types = initialize()->get_types;
+
+            auto start = get_types(*this);
+
+            return std::span<uint32_t>{start, (size_t)get_num_types(*this)};
+        }
+
+        std::span<uint32_t> get_methods() const {
+            static const auto get_num_methods = initialize()->get_num_methods;
+            static const auto get_methods = initialize()->get_methods;
+
+            auto start = get_methods(*this);
+
+            return std::span<uint32_t>{start, (size_t)get_num_methods(*this)};
+        }
+
+      private:
+        static inline const ::REFrameworkModule *s_functions{nullptr};
+        static inline const ::REFrameworkModule *initialize() {
+            if (s_functions == nullptr) {
+                s_functions = API::s_instance->sdk()->module;
+            }
+
+            return s_functions;
         }
     };
 
@@ -275,37 +406,50 @@ public:
         }
 
         uint32_t get_index() const {
-            return API::s_instance->sdk()->type_definition->get_index(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_index;
+            return fn(*this);
         }
 
         uint32_t get_size() const {
-            return API::s_instance->sdk()->type_definition->get_size(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_size;
+            return fn(*this);
         }
 
         uint32_t get_valuetype_size() const {
-            return API::s_instance->sdk()->type_definition->get_valuetype_size(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_valuetype_size;
+            return fn(*this);
         }
 
         uint32_t get_fqn() const {
-            return API::s_instance->sdk()->type_definition->get_fqn(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_fqn;
+            return fn(*this);
         }
 
-        const char* get_name() const {
-            return API::s_instance->sdk()->type_definition->get_name(*this);
+        const char *get_name() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_name;
+            return fn(*this);
         }
 
-        const char* get_namespace() const {
-            return API::s_instance->sdk()->type_definition->get_namespace(*this);
+        const char *get_namespace() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_namespace;
+            return fn(*this);
         }
 
         std::string get_full_name() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_full_name;
+
             std::string buffer{};
             buffer.resize(512);
 
             uint32_t real_size{0};
-
-            const auto sdk = API::s_instance->sdk();
-            auto result = sdk->type_definition->get_full_name(*this, &buffer[0], buffer.size(), &real_size);
+            auto result = fn(*this, &buffer[0], buffer.size(), &real_size);
 
             if (result != REFRAMEWORK_ERROR_NONE) {
                 return "";
@@ -316,74 +460,111 @@ public:
         }
 
         bool has_fieldptr_offset() const {
-            return API::s_instance->sdk()->type_definition->has_fieldptr_offset(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->has_fieldptr_offset;
+            return fn(*this);
         }
 
         int32_t get_fieldptr_offset() const {
-            return API::s_instance->sdk()->type_definition->get_fieldptr_offset(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_fieldptr_offset;
+            return fn(*this);
         }
 
         uint32_t get_num_methods() const {
-            return API::s_instance->sdk()->type_definition->get_num_methods(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_num_methods;
+            return fn(*this);
         }
 
         uint32_t get_num_fields() const {
-            return API::s_instance->sdk()->type_definition->get_num_fields(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_num_fields;
+            return fn(*this);
         }
 
         uint32_t get_num_properties() const {
-            return API::s_instance->sdk()->type_definition->get_num_properties(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_num_properties;
+            return fn(*this);
         }
 
-        bool is_derived_from(API::TypeDefinition* other) {
-            return API::s_instance->sdk()->type_definition->is_derived_from(*this, *other);
+        bool is_derived_from(API::TypeDefinition *other) {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->is_derived_from;
+            return fn(*this, *other);
         }
 
         bool is_derived_from(std::string_view other) {
-            return API::s_instance->sdk()->type_definition->is_derived_from_by_name(*this, other.data());
+            static const auto fn =
+                API::s_instance->sdk()
+                    ->type_definition->is_derived_from_by_name;
+            return fn(*this, other.data());
         }
 
         bool is_valuetype() const {
-            return API::s_instance->sdk()->type_definition->is_valuetype(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->is_valuetype;
+            return fn(*this);
         }
 
         bool is_enum() const {
-            return API::s_instance->sdk()->type_definition->is_enum(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->is_enum;
+            return fn(*this);
         }
 
         bool is_by_ref() const {
-            return API::s_instance->sdk()->type_definition->is_by_ref(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->is_by_ref;
+            return fn(*this);
         }
 
         bool is_pointer() const {
-            return API::s_instance->sdk()->type_definition->is_pointer(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->is_pointer;
+            return fn(*this);
         }
 
         bool is_primitive() const {
-            return API::s_instance->sdk()->type_definition->is_primitive(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->is_primitive;
+            return fn(*this);
         }
 
         ::REFrameworkVMObjType get_vm_obj_type() const {
-            return API::s_instance->sdk()->type_definition->get_vm_obj_type(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_vm_obj_type;
+            return fn(*this);
         }
 
-        API::Method* find_method(std::string_view name) const {
-            return (API::Method*)API::s_instance->sdk()->type_definition->find_method(*this, name.data());
+        API::Method *find_method(std::string_view name) const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->find_method;
+            return (API::Method *)fn(*this, name.data());
         }
 
-        API::Field* find_field(std::string_view name) const {
-            return (API::Field*)API::s_instance->sdk()->type_definition->find_field(*this, name.data());
+        API::Field *find_field(std::string_view name) const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->find_field;
+            return (API::Field *)fn(*this, name.data());
         }
 
-        API::Property* find_property(std::string_view name) const {
-            return (API::Property*)API::s_instance->sdk()->type_definition->find_property(*this, name.data());
+        API::Property *find_property(std::string_view name) const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->find_property;
+            return (API::Property *)fn(*this, name.data());
         }
 
-        std::vector<API::Method*> get_methods() const {
-            std::vector<API::Method*> methods;
+        std::vector<API::Method *> get_methods() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_methods;
+
+            std::vector<API::Method *> methods;
             methods.resize(get_num_methods());
 
-            auto result = API::s_instance->sdk()->type_definition->get_methods(*this, (REFrameworkMethodHandle*)&methods[0], methods.size() * sizeof(API::Method*), nullptr);
+            auto result = fn(*this, (REFrameworkMethodHandle *)&methods[0],
+                             methods.size() * sizeof(API::Method *), nullptr);
 
             if (result != REFRAMEWORK_ERROR_NONE) {
                 return {};
@@ -392,11 +573,15 @@ public:
             return methods;
         }
 
-        std::vector<API::Field*> get_fields() const {
-            std::vector<API::Field*> fields;
+        std::vector<API::Field *> get_fields() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_fields;
+
+            std::vector<API::Field *> fields;
             fields.resize(get_num_fields());
 
-            auto result = API::s_instance->sdk()->type_definition->get_fields(*this, (REFrameworkFieldHandle*)&fields[0], fields.size() * sizeof(API::Field*), nullptr);
+            auto result = fn(*this, (REFrameworkFieldHandle *)&fields[0],
+                             fields.size() * sizeof(API::Field *), nullptr);
 
             if (result != REFRAMEWORK_ERROR_NONE) {
                 return {};
@@ -405,41 +590,58 @@ public:
             return fields;
         }
 
-        std::vector<API::Property*> get_properties() const {
+        std::vector<API::Property *> get_properties() const {
             throw std::runtime_error("Not implemented");
             return {};
         }
 
-        void* get_instance() const {
-            return API::s_instance->sdk()->type_definition->get_instance(*this);
+        void *get_instance() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_instance;
+            return fn(*this);
         }
 
-        void* create_instance_deprecated() const {
-            return API::s_instance->sdk()->type_definition->create_instance_deprecated(*this);
+        void *create_instance_deprecated() const {
+            static const auto fn =
+                API::s_instance->sdk()
+                    ->type_definition->create_instance_deprecated;
+            return fn(*this);
         }
 
-        API::ManagedObject* create_instance(int flags = 0) const {
-            return (API::ManagedObject*)API::s_instance->sdk()->type_definition->create_instance(*this, flags);
+        API::ManagedObject *create_instance(int flags = 0) const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->create_instance;
+            return (API::ManagedObject *)fn(*this, flags);
         }
 
-        API::TypeDefinition* get_parent_type() const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->type_definition->get_parent_type(*this);
+        API::TypeDefinition *get_parent_type() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_parent_type;
+            return (API::TypeDefinition *)fn(*this);
         }
 
-        API::TypeDefinition* get_declaring_type() const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->type_definition->get_declaring_type(*this);
+        API::TypeDefinition *get_declaring_type() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_declaring_type;
+            return (API::TypeDefinition *)fn(*this);
         }
 
-        API::TypeDefinition* get_underlying_type() const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->type_definition->get_underlying_type(*this);
+        API::TypeDefinition *get_underlying_type() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_underlying_type;
+            return (API::TypeDefinition *)fn(*this);
         }
 
-        API::TypeInfo* get_type_info() const {
-            return (API::TypeInfo*)API::s_instance->sdk()->type_definition->get_type_info(*this);
+        API::TypeInfo *get_type_info() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_type_info;
+            return (API::TypeInfo *)fn(*this);
         }
 
-        API::ManagedObject* get_runtime_type() const {
-            return (API::ManagedObject*)API::s_instance->sdk()->type_definition->get_runtime_type(*this);
+        API::ManagedObject *get_runtime_type() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_definition->get_runtime_type;
+            return (API::ManagedObject *)fn(*this);
         }
     };
 
@@ -448,10 +650,17 @@ public:
             return (::REFrameworkMethodHandle)this;
         }
 
-        reframework::InvokeRet invoke(API::ManagedObject* obj, const std::vector<void*>& args) {
+        reframework::InvokeRet invoke(API::ManagedObject *obj,
+                                      const std::vector<void *> &args) {
+            static const auto fn = API::s_instance->sdk()->method->invoke;
             reframework::InvokeRet out{};
-
-            auto result = API::s_instance->sdk()->method->invoke(*this, obj, (void**)&args[0], args.size() * sizeof(void*), &out, sizeof(out));
+            REFrameworkResult result;
+            if (args.size() == 0) {
+                result = fn(*this, obj, nullptr, 0, &out, sizeof(out));
+            } else {
+                result = fn(*this, obj, (void **)&args[0],
+                            args.size() * sizeof(void *), &out, sizeof(out));
+            }
 
 #ifdef REFRAMEWORK_API_EXCEPTIONS
             if (result != REFRAMEWORK_ERROR_NONE) {
@@ -462,42 +671,71 @@ public:
             return out;
         }
 
-        template<typename T>
-        T get_function() const {
-            return (T)API::s_instance->sdk()->method->get_function(*this);
+        reframework::InvokeRet invoke(API::ManagedObject *obj,
+                                      const std::span<void *> &args) {
+            static const auto fn = API::s_instance->sdk()->method->invoke;
+            reframework::InvokeRet out{};
+
+            auto result = fn(*this, obj, args.data(),
+                             args.size() * sizeof(void *), &out, sizeof(out));
+
+#ifdef REFRAMEWORK_API_EXCEPTIONS
+            if (result != REFRAMEWORK_ERROR_NONE) {
+                throw std::runtime_error("Method invocation failed");
+            }
+#endif
+
+            return out;
         }
 
-        void* get_function_raw() const {
-            return API::s_instance->sdk()->method->get_function(*this);
+        template <typename T> T get_function() const {
+            static const auto fn = API::s_instance->sdk()->method->get_function;
+            return (T)fn(*this);
+        }
+
+        void *get_function_raw() const {
+            static const auto fn = API::s_instance->sdk()->method->get_function;
+            return fn(*this);
         }
 
         // e.g. call<void*>(sdk->get_vm_context(), obj, args...);
-        template<typename Ret = void*, typename ...Args>
+        template <typename Ret = void *, typename... Args>
         Ret call(Args... args) const {
             return get_function<Ret (*)(Args...)>()(args...);
         }
 
-        const char* get_name() const {
+        const char *get_name() const {
+            static const auto fn = API::s_instance->sdk()->method->get_name;
             return API::s_instance->sdk()->method->get_name(*this);
         }
 
-        API::TypeDefinition* get_declaring_type() const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->method->get_declaring_type(*this);
+        API::TypeDefinition *get_declaring_type() const {
+            static const auto fn =
+                API::s_instance->sdk()->method->get_declaring_type;
+            return (API::TypeDefinition *)fn(*this);
         }
 
-        API::TypeDefinition* get_return_type() const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->method->get_return_type(*this);
+        API::TypeDefinition *get_return_type() const {
+            static const auto fn =
+                API::s_instance->sdk()->method->get_return_type;
+            return (API::TypeDefinition *)fn(*this);
         }
 
         uint32_t get_num_params() const {
-            return API::s_instance->sdk()->method->get_num_params(*this);
+            static const auto fn =
+                API::s_instance->sdk()->method->get_num_params;
+            return fn(*this);
         }
 
         std::vector<REFrameworkMethodParameter> get_params() const {
+            static const auto fn = API::s_instance->sdk()->method->get_params;
+
             std::vector<REFrameworkMethodParameter> params;
             params.resize(get_num_params());
 
-            auto result = API::s_instance->sdk()->method->get_params(*this, (REFrameworkMethodParameter*)&params[0], params.size() * sizeof(REFrameworkMethodParameter), nullptr);
+            auto result =
+                fn(*this, (REFrameworkMethodParameter *)&params[0],
+                   params.size() * sizeof(REFrameworkMethodParameter), nullptr);
 
 #ifdef REFRAMEWORK_API_EXCEPTIONS
             if (result != REFRAMEWORK_ERROR_NONE) {
@@ -513,35 +751,49 @@ public:
         }
 
         uint32_t get_index() const {
-            return API::s_instance->sdk()->method->get_index(*this);
+            static const auto fn = API::s_instance->sdk()->method->get_index;
+            return fn(*this);
         }
 
         int get_virtual_index() const {
-            return API::s_instance->sdk()->method->get_virtual_index(*this);
+            static const auto fn =
+                API::s_instance->sdk()->method->get_virtual_index;
+            return fn(*this);
         }
 
         bool is_static() const {
-            return API::s_instance->sdk()->method->is_static(*this);
+            static const auto fn = API::s_instance->sdk()->method->is_static;
+            return fn(*this);
         }
 
         uint16_t get_flags() const {
-            return API::s_instance->sdk()->method->get_flags(*this);
+            static const auto fn = API::s_instance->sdk()->method->get_flags;
+            return fn(*this);
         }
 
         uint16_t get_impl_flags() const {
-            return API::s_instance->sdk()->method->get_impl_flags(*this);
+            static const auto fn =
+                API::s_instance->sdk()->method->get_impl_flags;
+            return fn(*this);
         }
 
         uint32_t get_invoke_id() const {
-            return API::s_instance->sdk()->method->get_invoke_id(*this);
+            static const auto fn =
+                API::s_instance->sdk()->method->get_invoke_id;
+            return fn(*this);
         }
 
-        unsigned int add_hook(REFPreHookFn pre_fn, REFPostHookFn post_fn, bool ignore_jmp) const {
-            return API::s_instance->sdk()->functions->add_hook(*this, pre_fn, post_fn, ignore_jmp);
+        unsigned int add_hook(REFPreHookFn pre_fn, REFPostHookFn post_fn,
+                              bool ignore_jmp) const {
+            static const auto fn = API::s_instance->sdk()->functions->add_hook;
+            return fn(*this, pre_fn, post_fn, ignore_jmp);
         }
 
         void remove_hook(unsigned int hook_id) const {
-            API::s_instance->sdk()->functions->remove_hook(*this, hook_id);
+
+            static const auto fn =
+                API::s_instance->sdk()->functions->remove_hook;
+            fn(*this, hook_id);
         }
     };
 
@@ -550,47 +802,68 @@ public:
             return (::REFrameworkFieldHandle)this;
         }
 
-        const char* get_name() const {
-            return API::s_instance->sdk()->field->get_name(*this);
+        const char *get_name() const {
+            static const auto fn = API::s_instance->sdk()->field->get_name;
+            return fn(*this);
         }
 
-        API::TypeDefinition* get_declaring_type() const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->field->get_declaring_type(*this);
+        API::TypeDefinition *get_declaring_type() const {
+            static const auto fn =
+                API::s_instance->sdk()->field->get_declaring_type;
+            return (API::TypeDefinition *)fn(*this);
         }
 
-        API::TypeDefinition* get_type() const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->field->get_type(*this);
+        API::TypeDefinition *get_type() const {
+            static const auto fn = API::s_instance->sdk()->field->get_type;
+            return (API::TypeDefinition *)fn(*this);
         }
 
         uint32_t get_offset_from_base() const {
-            return API::s_instance->sdk()->field->get_offset_from_base(*this);
+            static const auto fn =
+                API::s_instance->sdk()->field->get_offset_from_base;
+            return fn(*this);
         }
 
         uint32_t get_offset_from_fieldptr() const {
-            return API::s_instance->sdk()->field->get_offset_from_fieldptr(*this);
+            static const auto fn =
+                API::s_instance->sdk()->field->get_offset_from_fieldptr;
+            return fn(*this);
         }
 
         uint32_t get_flags() const {
-            return API::s_instance->sdk()->field->get_flags(*this);
+            static const auto fn = API::s_instance->sdk()->field->get_flags;
+            return fn(*this);
         }
 
         bool is_static() const {
-            return API::s_instance->sdk()->field->is_static(*this);
+            static const auto fn = API::s_instance->sdk()->field->is_static;
+            return fn(*this);
         }
 
         bool is_literal() const {
-            return API::s_instance->sdk()->field->is_literal(*this);
+            static const auto fn = API::s_instance->sdk()->field->is_literal;
+            return fn(*this);
         }
 
-        void* get_init_data() const {
-            return API::s_instance->sdk()->field->get_init_data(*this);
+        void *get_init_data() const {
+            static const auto fn = API::s_instance->sdk()->field->get_init_data;
+            return fn(*this);
         }
 
-        void* get_data_raw(void* obj, bool is_value_type = false) const {
-            return API::s_instance->sdk()->field->get_data_raw(*this, obj, is_value_type);
+        void *get_data_raw(void *obj, bool is_value_type = false) const {
+            static const auto fn = API::s_instance->sdk()->field->get_data_raw;
+            return fn(*this, obj, is_value_type);
         }
 
-        template <typename T> T& get_data(void* object = nullptr, bool is_value_type = false) const { return *(T*)get_data_raw(object); }
+        uint32_t get_index() const {
+            static const auto fn = API::s_instance->sdk()->field->get_index;
+            return fn(*this);
+        }
+
+        template <typename T>
+        T &get_data(void *object = nullptr, bool is_value_type = false) const {
+            return *(T *)get_data_raw(object, is_value_type);
+        }
     };
 
     struct Property {
@@ -607,46 +880,71 @@ public:
         }
 
         void add_ref() {
-            API::s_instance->sdk()->managed_object->add_ref(*this);
+            static const auto fn =
+                API::s_instance->sdk()->managed_object->add_ref;
+            fn(*this);
         }
 
         void release() {
-            API::s_instance->sdk()->managed_object->release(*this);
+            static const auto fn =
+                API::s_instance->sdk()->managed_object->release;
+            fn(*this);
         }
 
-        API::TypeDefinition* get_type_definition() const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->managed_object->get_type_definition(*this);
+        API::TypeDefinition *get_type_definition() const {
+            static const auto fn =
+                API::s_instance->sdk()->managed_object->get_type_definition;
+            return (API::TypeDefinition *)fn(*this);
         }
 
         bool is_managed_object() const {
-            return API::s_instance->sdk()->managed_object->is_managed_object(*this);
+            static const auto fn =
+                API::s_instance->sdk()->managed_object->is_managed_object;
+            return fn(*this);
         }
 
         uint32_t get_ref_count() const {
-            return API::s_instance->sdk()->managed_object->get_ref_count(*this);
+            static const auto fn =
+                API::s_instance->sdk()->managed_object->get_ref_count;
+            return fn(*this);
         }
 
         uint32_t get_vm_obj_type() const {
-            return API::s_instance->sdk()->managed_object->get_vm_obj_type(*this);
+            static const auto fn =
+                API::s_instance->sdk()->managed_object->get_vm_obj_type;
+            return fn(*this);
         }
 
-        API::TypeInfo* get_type_info() const {
-            return (API::TypeInfo*)API::s_instance->sdk()->managed_object->get_type_info(*this);
+        API::TypeInfo *get_type_info() const {
+            static const auto fn =
+                API::s_instance->sdk()->managed_object->get_type_info;
+            return (API::TypeInfo *)fn(*this);
         }
 
-        void* get_reflection_properties() const {
-            return API::s_instance->sdk()->managed_object->get_reflection_properties(*this);
+        void *get_reflection_properties() const {
+            static const auto fn =
+                API::s_instance->sdk()
+                    ->managed_object->get_reflection_properties;
+            return fn(*this);
         }
 
-        API::ReflectionProperty* get_reflection_property_descriptor(std::string_view name) {
-            return (API::ReflectionProperty*)API::s_instance->sdk()->managed_object->get_reflection_property_descriptor(*this, name.data());
+        API::ReflectionProperty *
+        get_reflection_property_descriptor(std::string_view name) {
+            static const auto fn =
+                API::s_instance->sdk()
+                    ->managed_object->get_reflection_property_descriptor;
+            return (API::ReflectionProperty *)fn(*this, name.data());
         }
 
-        API::ReflectionMethod* get_reflection_method_descriptor(std::string_view name) {
-            return (API::ReflectionMethod*)API::s_instance->sdk()->managed_object->get_reflection_method_descriptor(*this, name.data());
+        API::ReflectionMethod *
+        get_reflection_method_descriptor(std::string_view name) {
+            static const auto fn =
+                API::s_instance->sdk()
+                    ->managed_object->get_reflection_method_descriptor;
+            return (API::ReflectionMethod *)fn(*this, name.data());
         }
 
-        template<typename Ret = void*, typename ...Args>
+        template <typename Ret = void *, typename... Args>
         Ret call(std::string_view method_name, Args... args) const {
             auto t = get_type_definition();
 
@@ -663,7 +961,8 @@ public:
             return m->get_function<Ret (*)(Args...)>()(args...);
         }
 
-        reframework::InvokeRet invoke(std::string_view method_name, const std::vector<void*>& args) {
+        reframework::InvokeRet invoke(std::string_view method_name,
+                                      const std::vector<void *> &args) {
             auto t = get_type_definition();
 
             if (t == nullptr) {
@@ -679,8 +978,8 @@ public:
             return m->invoke(this, args);
         }
 
-        template<typename T>
-        T* get_field(std::string_view name, bool is_value_type = false) const {
+        template <typename T>
+        T *get_field(std::string_view name, bool is_value_type = false) const {
             auto t = get_type_definition();
 
             if (t == nullptr) {
@@ -693,7 +992,7 @@ public:
                 return nullptr;
             }
 
-            return (T*)f->get_data_raw((void*)this, is_value_type);
+            return (T *)f->get_data_raw((void *)this, is_value_type);
         }
     };
 
@@ -702,22 +1001,27 @@ public:
             return (::REFrameworkResourceManagerHandle)this;
         }
 
-        API::Resource* create_resource(std::string_view type_name, std::string_view name) {
-            return (API::Resource*)API::s_instance->sdk()->resource_manager->create_resource(*this, type_name.data(), name.data());
+        API::Resource *create_resource(std::string_view type_name,
+                                       std::string_view name) {
+            static const auto fn =
+                API::s_instance->sdk()->resource_manager->create_resource;
+            return (API::Resource *)fn(*this, type_name.data(), name.data());
         }
     };
-    
+
     struct Resource {
         operator ::REFrameworkResourceHandle() const {
             return (::REFrameworkResourceHandle)this;
         }
 
         void add_ref() {
-            API::s_instance->sdk()->resource->add_ref(*this);
+            static const auto fn = API::s_instance->sdk()->resource->add_ref;
+            fn(*this);
         }
 
         void release() {
-            API::s_instance->sdk()->resource->release(*this);
+            static const auto fn = API::s_instance->sdk()->resource->release;
+            fn(*this);
         }
     };
 
@@ -726,48 +1030,74 @@ public:
             return (::REFrameworkTypeInfoHandle)this;
         }
 
-        const char* get_name() const {
-            return API::s_instance->sdk()->type_info->get_name(*this);
+        const char *get_name() const {
+            static const auto fn = API::s_instance->sdk()->type_info->get_name;
+            return fn(*this);
         }
 
-        API::TypeDefinition* get_type_definition() const {
-            return (API::TypeDefinition*)API::s_instance->sdk()->type_info->get_type_definition(*this);
+        API::TypeDefinition *get_type_definition() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_info->get_type_definition;
+            return (API::TypeDefinition *)fn(*this);
         }
 
         bool is_clr_type() const {
-            return API::s_instance->sdk()->type_info->is_clr_type(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_info->is_clr_type;
+            return fn(*this);
         }
 
         bool is_singleton() const {
-            return API::s_instance->sdk()->type_info->is_singleton(*this);
+            static const auto fn =
+                API::s_instance->sdk()->type_info->is_singleton;
+            return fn(*this);
         }
 
-        void* get_singleton_instance() const {
-            return API::s_instance->sdk()->type_info->get_singleton_instance(*this);
+        void *get_singleton_instance() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_info->get_singleton_instance;
+            return fn(*this);
         }
 
-        void* get_reflection_properties() const {
-            return API::s_instance->sdk()->type_info->get_reflection_properties(*this);
+        void *get_reflection_properties() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_info->get_reflection_properties;
+            return fn(*this);
         }
 
-        API::ReflectionProperty* get_reflection_property_descriptor(std::string_view name) {
-            return (API::ReflectionProperty*)API::s_instance->sdk()->type_info->get_reflection_property_descriptor(*this, name.data());
+        API::ReflectionProperty *
+        get_reflection_property_descriptor(std::string_view name) {
+            static const auto fn =
+                API::s_instance->sdk()
+                    ->type_info->get_reflection_property_descriptor;
+            return (API::ReflectionProperty *)API::s_instance->sdk()
+                ->type_info->get_reflection_property_descriptor(*this,
+                                                                name.data());
         }
 
-        API::ReflectionMethod* get_reflection_method_descriptor(std::string_view name) {
-            return (API::ReflectionMethod*)API::s_instance->sdk()->type_info->get_reflection_method_descriptor(*this, name.data());
+        API::ReflectionMethod *
+        get_reflection_method_descriptor(std::string_view name) {
+            static const auto fn =
+                API::s_instance->sdk()
+                    ->type_info->get_reflection_method_descriptor;
+            return (API::ReflectionMethod *)fn(*this, name.data());
         }
 
-        void* get_deserializer_fn() const {
-            return API::s_instance->sdk()->type_info->get_deserializer_fn(*this);
+        void *get_deserializer_fn() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_info->get_deserializer_fn;
+            return fn(*this);
         }
 
-        API::TypeInfo* get_parent() const {
-            return (API::TypeInfo*)API::s_instance->sdk()->type_info->get_parent(*this);
+        API::TypeInfo *get_parent() const {
+            static const auto fn =
+                API::s_instance->sdk()->type_info->get_parent;
+            return (API::TypeInfo *)fn(*this);
         }
 
         uint32_t get_crc() const {
-            return API::s_instance->sdk()->type_info->get_crc(*this);
+            static const auto fn = API::s_instance->sdk()->type_info->get_crc;
+            return fn(*this);
         }
     };
 
@@ -777,19 +1107,27 @@ public:
         }
 
         bool has_exception() const {
-            return API::s_instance->sdk()->vm_context->has_exception(*this);
+            static const auto fn =
+                API::s_instance->sdk()->vm_context->has_exception;
+            return fn(*this);
         }
 
         void unhandled_exception() {
-            API::s_instance->sdk()->vm_context->unhandled_exception(*this);
+            static const auto fn =
+                API::s_instance->sdk()->vm_context->unhandled_exception;
+            fn(*this);
         }
 
         void local_frame_gc() {
-            API::s_instance->sdk()->vm_context->local_frame_gc(*this);
+            static const auto fn =
+                API::s_instance->sdk()->vm_context->local_frame_gc;
+            fn(*this);
         }
 
         void cleanup_after_exception(int32_t old_ref_count) {
-            API::s_instance->sdk()->vm_context->cleanup_after_exception(*this, old_ref_count);
+            static const auto fn =
+                API::s_instance->sdk()->vm_context->cleanup_after_exception;
+            fn(*this, old_ref_count);
         }
     };
 
@@ -799,7 +1137,9 @@ public:
         }
 
         ::REFrameworkInvokeMethod get_function() const {
-            return API::s_instance->sdk()->reflection_method->get_function(*this);
+            static const auto fn =
+                API::s_instance->sdk()->reflection_method->get_function;
+            return fn(*this);
         }
     };
 
@@ -809,21 +1149,27 @@ public:
         }
 
         ::REFrameworkReflectionPropertyMethod get_getter() const {
-            return API::s_instance->sdk()->reflection_property->get_getter(*this);
+            static const auto fn =
+                API::s_instance->sdk()->reflection_property->get_getter;
+            return fn(*this);
         }
 
         bool is_static() const {
-            return API::s_instance->sdk()->reflection_property->is_static(*this);
+            static const auto fn =
+                API::s_instance->sdk()->reflection_property->is_static;
+            return fn(*this);
         }
 
         uint32_t get_size() const {
-            return API::s_instance->sdk()->reflection_property->get_size(*this);
+            static const auto fn =
+                API::s_instance->sdk()->reflection_property->get_size;
+            return fn(*this);
         }
     };
 
-private:
-    const REFrameworkPluginInitializeParam* m_param;
-    const REFrameworkSDKData* m_sdk;
+  private:
+    const REFrameworkPluginInitializeParam *m_param;
+    const REFrameworkSDKData *m_sdk;
     std::recursive_mutex m_lua_mtx{};
 };
-}
+} // namespace reframework
