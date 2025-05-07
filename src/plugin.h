@@ -13,11 +13,11 @@ struct imgui {
 
 struct hbdraw {
     lua_State *lua{};
-    std::mutex mutex;
     camera camera{};
     bool w2s{true};
     imgui imgui{};
-    bool do_new_frame{true};
+    std::vector<sol::protected_function> draw_fns;
+    std::mutex mutex;
 };
 
 extern hbdraw g_hbdraw;
