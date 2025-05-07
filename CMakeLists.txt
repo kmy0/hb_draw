@@ -120,7 +120,7 @@ target_include_directories(glm INTERFACE
 set(reframework_SOURCES
 	"deps/reframework/rendering/d3d12.cpp"
 	"deps/reframework/reframework/API.h"
-	"deps/reframework/reframework/sdk.h"
+	"deps/reframework/reframework/value_type.h"
 	"deps/reframework/reframework/API.hpp"
 	"deps/reframework/reframework/Math.hpp"
 	"deps/reframework/rendering/d3d12.hpp"
@@ -180,5 +180,5 @@ target_link_libraries(hb_draw PUBLIC
 
 set(CMKR_TARGET hb_draw)
 set_target_properties(hb_draw PROPERTIES
-                      RUNTIME_OUTPUT_DIRECTORY_RELEASE C:/SteamLibrary/steamapps/common/MonsterHunterWilds/reframework/plugins
+                      RUNTIME_OUTPUT_DIRECTORY_RELEASE ../bin
 )

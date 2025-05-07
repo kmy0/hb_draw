@@ -9,7 +9,7 @@
 ---@field sliced_cylinder fun(start: Vector3f, end: Vector3f, radius: number, direction: Vector3f, degrees: number, color: integer, outline: boolean, color_outline: integer)
 ---@field set_num_segments fun(num: integer)
 ---@field set_outline_tickness fun(num: integer)
----@field set_w2s fun(b: boolean)
+---@field register fun(draw_fn: fun())
 
 ---@class hb_draw
 hb_draw = {}

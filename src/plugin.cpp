@@ -94,7 +94,6 @@ void on_lua_state_created(lua_State *l) {
     hb_draw["set_outline_tickness"] = [](unsigned num) {
         g_hbdraw.imgui.outline_tickness = num;
     };
-    hb_draw["set_w2s"] = [](bool b) { g_hbdraw.w2s = b; };
     hb_draw["register"] = [](sol::protected_function fn) {
         g_hbdraw.draw_fns.push_back(fn);
     };
@@ -124,10 +123,6 @@ reframework_plugin_initialize(const REFrameworkPluginInitializeParam *param) {
     functions->on_present(do_render);
     functions->on_post_application_entry("EndRendering", do_draw);
     functions->on_device_reset(on_device_reset);
-
-    if (strcmp(param->version->game_name, "MHWILDS") == 0) {
-        g_hbdraw.w2s = false;
-    }
 
     return true;
 }

@@ -14,7 +14,6 @@ struct imgui {
 struct hbdraw {
     lua_State *lua{};
     camera camera{};
-    bool w2s{true};
     imgui imgui{};
     std::vector<sol::protected_function> draw_fns;
     std::mutex mutex;
