@@ -17,6 +17,7 @@ struct hbdraw {
     imgui imgui{};
     std::vector<sol::protected_function> draw_fns;
     std::mutex mutex;
+    bool is_frame{false};
 };
 
 extern hbdraw g_hbdraw;

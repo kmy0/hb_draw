@@ -59,6 +59,7 @@ void do_draw() {
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+    g_hbdraw.is_frame = true;
 
     API::LuaLock _{};
     for (const auto &fn : g_hbdraw.draw_fns) {
@@ -68,7 +69,7 @@ void do_draw() {
 
 void do_render() {
     std::lock_guard m{g_hbdraw.mutex};
-    if (!imgui_ok() || g_hbdraw.camera.is_frame_gen) {
+    if (!imgui_ok() || g_hbdraw.camera.is_frame_gen || !g_hbdraw.is_frame) {
         return;
     }
 
@@ -105,6 +106,7 @@ void on_device_reset() {
     g_d3d12 = {};
     g_hbdraw.imgui.initialized = false;
     g_hbdraw.camera = {};
+    g_hbdraw.is_frame = false;
 }
 
 void on_lua_state_destroyed(lua_State *l) {
