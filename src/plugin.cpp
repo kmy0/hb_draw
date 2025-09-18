@@ -12,6 +12,14 @@ using API = reframework::API;
 
 hbdraw g_hbdraw{};
 
+template <typename T> T &read_memory(uintptr_t ptr) {
+    return *reinterpret_cast<T *>(ptr);
+}
+
+template <typename T> void write_memory(uintptr_t ptr, const T &value) {
+    *reinterpret_cast<T *>(ptr) = value;
+}
+
 bool initialize_imgui() {
     if (g_hbdraw.imgui.initialized) {
         return true;
@@ -98,6 +106,19 @@ void on_lua_state_created(lua_State *l) {
     hb_draw["register"] = [](sol::protected_function fn) {
         g_hbdraw.draw_fns.push_back(fn);
     };
+    hb_draw["write_byte"] = write_memory<uint8_t>;
+    hb_draw["write_short"] = write_memory<uint16_t>;
+    hb_draw["write_dword"] = write_memory<uint32_t>;
+    hb_draw["write_qword"] = write_memory<int64_t>;
+    hb_draw["write_float"] = write_memory<float>;
+    hb_draw["write_double"] = write_memory<double>;
+    hb_draw["read_byte"] = read_memory<uint8_t>;
+    hb_draw["read_short"] = read_memory<uint16_t>;
+    hb_draw["read_dword"] = read_memory<uint32_t>;
+    hb_draw["read_qword"] = read_memory<int64_t>;
+    hb_draw["read_float"] = read_memory<float>;
+    hb_draw["read_double"] = read_memory<double>;
+
     lua["hb_draw"] = hb_draw;
 }
 
