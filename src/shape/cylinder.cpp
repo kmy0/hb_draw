@@ -21,6 +21,7 @@ Cylinder::Cylinder(const Vector3f &start, const Vector3f &end, float radius,
     }
 
     const size_t cap_max = m_num_segments / 2;
+    m_cap = nullptr;
     for (size_t i = 0; i <= m_num_segments; i += 2) {
         i = i == m_num_segments ? i - 1 : i;
         size_t j = i <= cap_max ? i + cap_max : i - cap_max;

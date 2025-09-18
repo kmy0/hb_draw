@@ -255,7 +255,7 @@ void draw::draw(const Cylinder &shape, ImU32 color, bool outline,
         return;
     }
 
-    if (!shape.m_cap->empty()) {
+    if (shape.m_cap && !shape.m_cap->empty()) {
         util::path_points(*shape.m_cap);
         util::paint(color, outline, color_outline);
     }
