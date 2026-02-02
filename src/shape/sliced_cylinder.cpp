@@ -8,7 +8,7 @@
 SlicedCylinder::SlicedCylinder(const Vector3f &start, const Vector3f &end,
                                float radius, const Vector3f &direction,
                                float degrees, unsigned num_segments)
-    : CylinderBase(start, end, radius, 150.0f),
+    : CylinderBase(start, end, radius),
       m_slice_angle(glm::radians(degrees) / 2), m_num_segments(num_segments) {
     if (!m_is_ok) {
         return;

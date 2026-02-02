@@ -55,19 +55,15 @@ struct Triangle : Shape {
 };
 
 struct CylinderBase : Shape {
-    CylinderBase(const Vector3f &start, const Vector3f &end, float radius,
-                 float max_distortion = 9999.0f);
+    CylinderBase(const Vector3f &start, const Vector3f &end, float radius);
 
     EllipseStruct m_top;
     EllipseStruct m_bottom;
     float m_angle;
-    float m_max_distortion;
 
   protected:
     bool get_cap(const Vector3f &center, const Vector3f &dir, float radius,
                  EllipseStruct &out);
-    bool is_distorted(const Vector2f &center, const Vector2f &p1,
-                      const Vector2f &p2);
 };
 
 struct Cylinder : CylinderBase {

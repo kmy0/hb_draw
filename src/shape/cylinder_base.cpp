@@ -8,8 +8,7 @@
 #include <utility>
 
 CylinderBase::CylinderBase(const Vector3f &start, const Vector3f &end,
-                           float radius, float max_distortion)
-    : m_max_distortion(max_distortion) {
+                           float radius) {
     const auto dir = glm::normalize(end - start);
 
     if (!get_cap(start, dir, radius, m_top) ||
@@ -49,8 +48,15 @@ bool CylinderBase::get_cap(const Vector3f &center, const Vector3f &dir,
         points2f[i] = *p2f;
     }
 
-    if (is_distorted(out.center, points2f[0], points2f[1]) ||
-        is_distorted(out.center, points2f[2], points2f[3])) {
+    const Vector2f screen_center = (points2f[0] + points2f[1]) * 0.5f;
+    const Vector2f screen_center2 = (points2f[2] + points2f[3]) * 0.5f;
+
+    const float center_deviation = glm::length(screen_center - screen_center2);
+    const float avg_radius = (glm::length(points2f[0] - screen_center) +
+                              glm::length(points2f[2] - screen_center2)) *
+                             0.5f;
+
+    if (center_deviation > avg_radius * 0.5f) {
         return false;
     }
 
@@ -60,10 +66,4 @@ bool CylinderBase::get_cap(const Vector3f &center, const Vector3f &dir,
     out.minor_axis.end = points3f[3];
     out.minor_radius = out.major_radius * glm::dot(dir, view);
     return true;
-}
-
-bool CylinderBase::is_distorted(const Vector2f &center, const Vector2f &p1,
-                                const Vector2f &p2) {
-    return std::abs(glm::length(p1 - center) - glm::length(p2 - center)) >=
-           m_max_distortion;
 }
