@@ -70,9 +70,15 @@ void do_draw() {
     g_hbdraw.is_frame = true;
 
     API::LuaLock _{};
-    for (const auto &fn : g_hbdraw.draw_fns) {
-        fn();
+    lua_State *L = g_hbdraw.lua;
+
+    sol::stack::get_field<true>(L, "__hb_draw_fns");
+    lua_pushnil(L);
+    while (lua_next(L, -2) != 0) {
+        lua_pcall(L, 0, 0, 0);
     }
+
+    lua_pop(L, 1);
 }
 
 void do_render() {
@@ -103,8 +109,18 @@ void on_lua_state_created(lua_State *l) {
     hb_draw["set_outline_tickness"] = [](unsigned num) {
         g_hbdraw.imgui.outline_tickness = num;
     };
-    hb_draw["register"] = [](sol::protected_function fn) {
-        g_hbdraw.draw_fns.push_back(fn);
+    hb_draw["register"] = [](sol::this_state s) {
+        API::LuaLock _{};
+
+        if (!lua_isfunction(s, 1)) {
+            return;
+        }
+
+        sol::stack::get_field<true>(s, "__hb_draw_fns");
+        sol::stack_table fns(s, -1);
+        int index = (int)fns.size() + 1;
+        fns.raw_set(index, sol::stack_object(s, 1));
+        lua_pop(s, 1);
     };
     hb_draw["write_byte"] = write_memory<uint8_t>;
     hb_draw["write_short"] = write_memory<uint16_t>;
@@ -119,6 +135,7 @@ void on_lua_state_created(lua_State *l) {
     hb_draw["read_float"] = read_memory<float>;
     hb_draw["read_double"] = read_memory<double>;
 
+    lua["__hb_draw_fns"] = lua.create_table();
     lua["hb_draw"] = hb_draw;
 }
 
@@ -133,7 +150,6 @@ void on_device_reset() {
 void on_lua_state_destroyed(lua_State *l) {
     API::LuaLock _{};
     g_hbdraw.lua = nullptr;
-    g_hbdraw.draw_fns.clear();
 }
 
 extern "C" __declspec(dllexport) bool
