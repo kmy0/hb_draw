@@ -60,6 +60,7 @@ bool imgui_ok() {
 
 void do_draw() {
     std::lock_guard m{g_hbdraw.mutex};
+
     if (!g_hbdraw.imgui.initialized || !scene::update_camera()) {
         return;
     }
@@ -83,7 +84,7 @@ void do_draw() {
 
 void do_render() {
     std::lock_guard m{g_hbdraw.mutex};
-    if (!imgui_ok() || g_hbdraw.camera.is_frame_gen || !g_hbdraw.is_frame) {
+    if (!imgui_ok() || !g_hbdraw.is_frame) {
         return;
     }
 

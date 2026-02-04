@@ -1,5 +1,4 @@
 #include "reframework/Math.hpp"
-#include "reframework/value_type.h"
 
 #include "plugin.h"
 #include "scene.h"
@@ -56,15 +55,9 @@ std::optional<Vector2f> scene::world_to_screen(const Vector3f &world_pos) {
     auto context = api->sdk()->functions->get_vm_context();
     const auto tdb = api->tdb();
 
-    static auto camera_util_def = tdb->find_type("ace.CameraUtil");
-
-    if (camera_util_def == nullptr) {
-        return std::nullopt;
-    }
-
-    static auto world_to_screen =
-        camera_util_def->find_method("convertWorldPos2ProjectedScreenPos(via."
-                                     "vec3, System.Nullable`1<via.Size>)");
+    static auto math_t = tdb->find_type("via.math");
+    static auto world_to_screen = math_t->find_method(
+        "worldPos2ScreenPos(via.vec3, via.mat4, via.mat4, via.Size)");
 
     const Vector4f pos = Vector4f{world_pos, 1.0f};
 
@@ -75,9 +68,8 @@ std::optional<Vector2f> scene::world_to_screen(const Vector3f &world_pos) {
     }
 
     Vector2f screen_pos{};
-    world_to_screen->call(
-        &screen_pos, context, &pos,
-        (void *)g_hbdraw.camera.nullable_screen_size->address());
+    world_to_screen->call(&screen_pos, context, &pos, &g_hbdraw.camera.view,
+                          &g_hbdraw.camera.proj, &g_hbdraw.camera.screen_size);
     return screen_pos;
 }
 
@@ -86,8 +78,8 @@ bool scene::setup_camera() {
         return true;
     }
 
-    auto camera = scene::get_primary_camera();
-    if (camera == nullptr) {
+    g_hbdraw.camera.camera = scene::get_primary_camera();
+    if (g_hbdraw.camera.camera == nullptr) {
         return false;
     }
 
@@ -103,43 +95,28 @@ bool scene::setup_camera() {
     static auto transform_def = tdb->find_type("via.Transform");
     static auto scene_def = tdb->find_type("via.SceneView");
     static auto gameobject_def = tdb->find_type("via.GameObject");
-    static auto nullable_size_def =
-        tdb->find_type("System.Nullable`1<via.Size>");
 
     static auto get_gameobject_method =
         transform_def->find_method("get_GameObject");
     static auto get_transform_method =
         gameobject_def->find_method("get_Transform");
-    static auto nullable_size_ctor_method =
-        nullable_size_def->find_method(".ctor(via.Size)");
     static auto get_window_size_method =
         scene_def->find_method("get_WindowSize");
 
     auto camera_gameobject =
-        get_gameobject_method->call<reframework::API::ManagedObject *>(context,
-                                                                       camera);
+        get_gameobject_method->call<reframework::API::ManagedObject *>(
+            context, g_hbdraw.camera.camera);
     g_hbdraw.camera.camera_transform =
         get_transform_method->call<reframework::API::ManagedObject *>(
             context, camera_gameobject);
     get_window_size_method->call(&g_hbdraw.camera.screen_size, context,
                                  main_view);
-    g_hbdraw.camera.nullable_screen_size =
-        std::make_unique<ValueType>(ValueType(nullable_size_def));
-    nullable_size_ctor_method->call(context,
-                                    *g_hbdraw.camera.nullable_screen_size,
-                                    g_hbdraw.camera.screen_size);
     g_hbdraw.camera.is_setup = true;
     return true;
 }
 
 bool scene::update_camera() {
-    auto frame_gen = is_frame_gen();
-    if (frame_gen != g_hbdraw.camera.is_frame_gen) {
-        g_hbdraw.camera.is_frame_gen = frame_gen;
-        g_hbdraw.camera = {};
-    }
-
-    if (frame_gen || !setup_camera()) {
+    if (!setup_camera()) {
         return false;
     }
 
@@ -159,23 +136,9 @@ bool scene::update_camera() {
         context, g_hbdraw.camera.camera_transform);
     g_hbdraw.camera.up = get_axisy_method->call<Vector4f>(
         context, g_hbdraw.camera.camera_transform);
+    g_hbdraw.camera.camera->call("get_ProjectionMatrix", &g_hbdraw.camera.proj,
+                                 context, g_hbdraw.camera.camera);
+    g_hbdraw.camera.camera->call("get_ViewMatrix", &g_hbdraw.camera.view,
+                                 context, g_hbdraw.camera.camera);
     return true;
-}
-
-bool scene::is_frame_gen() {
-    const auto &api = reframework::API::get();
-    static auto upscaling_interface_type =
-        api->tdb()->find_type("via.render.UpscalingInterface");
-
-    if (!upscaling_interface_type) {
-        return false;
-    }
-
-    static auto using_frame_gen_method =
-        upscaling_interface_type->find_method("get_UsingFrameGeneration");
-    static auto upscaling_interface =
-        api->get_native_singleton("via.render.UpscalingInterface");
-
-    return using_frame_gen_method->call<bool>(
-        api->sdk()->functions->get_vm_context(), upscaling_interface);
 }
