@@ -29,11 +29,9 @@ reframework::API::ManagedObject *scene::get_primary_camera() {
     static auto scene_view_type = api->tdb()->find_type("via.SceneView");
     static auto get_primary_camera_method =
         scene_view_type->find_method("get_PrimaryCamera");
-    static auto camera =
-        get_primary_camera_method->call<reframework::API::ManagedObject *>(
-            api->sdk()->functions->get_vm_context(), main_view);
 
-    return camera;
+    return get_primary_camera_method->call<reframework::API::ManagedObject *>(
+        api->sdk()->functions->get_vm_context(), main_view);
 }
 
 reframework::API::ManagedObject *scene::get_current_scene() {
@@ -60,7 +58,6 @@ std::optional<Vector2f> scene::world_to_screen(const Vector3f &world_pos) {
         "worldPos2ScreenPos(via.vec3, via.mat4, via.mat4, via.Size)");
 
     const Vector4f pos = Vector4f{world_pos, 1.0f};
-
     // behind camera
     if (glm::dot(pos - g_hbdraw.camera.origin, -g_hbdraw.camera.forward) <=
         0.0f) {
@@ -74,7 +71,8 @@ std::optional<Vector2f> scene::world_to_screen(const Vector3f &world_pos) {
 }
 
 bool scene::setup_camera() {
-    if (g_hbdraw.camera.is_setup) {
+    if (g_hbdraw.camera.is_setup &&
+        g_hbdraw.camera.camera->is_managed_object()) {
         return true;
     }
 

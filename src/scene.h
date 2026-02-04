@@ -20,7 +20,7 @@ struct camera {
     Vector4f forward{};
     Matrix4x4f proj{};
     Matrix4x4f view{};
-    float screen_size[2];
+    Vector2f screen_size{};
     reframework::API::ManagedObject *camera_transform;
     bool is_setup{false};
     reframework::API::ManagedObject *camera;
