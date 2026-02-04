@@ -15,7 +15,6 @@ struct hbdraw {
     lua_State *lua{};
     camera camera{};
     imgui imgui{};
-    std::vector<sol::protected_function> draw_fns;
     std::mutex mutex;
     bool is_frame{false};
 };
