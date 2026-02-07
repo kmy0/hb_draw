@@ -175,6 +175,17 @@ void draw::draw_sliced_cylinder(const Vector3f &start, const Vector3f &end,
     draw(sliced_cylinder, color, outline, color_outline);
 }
 
+void draw::draw_ring(const Vector3f &start, const Vector3f &end, float radius_a,
+                     float radius_b, ImU32 color, bool outline,
+                     ImU32 color_outline) {
+    const auto ring =
+        Ring(start, end, radius_a, radius_b, g_hbdraw.imgui.num_segments);
+    if (!ring.m_is_ok) {
+        return;
+    }
+    draw(ring, color, outline, color_outline);
+}
+
 void draw::draw(const Box &shape, ImU32 color, bool outline,
                 ImU32 color_outline) {
     if (!shape.m_is_ok) {
@@ -345,5 +356,59 @@ void draw::draw(const SlicedCylinder &shape, ImU32 color, bool outline,
                               *(ImVec2 *)&shape.m_left_outline->second,
                               color_outline);
         }
+    }
+}
+
+void draw::draw(const Ring &shape, ImU32 color, bool outline,
+                ImU32 color_outline) {
+    if (!shape.m_is_ok) {
+        return;
+    }
+
+    const auto drawlist = ImGui::GetBackgroundDrawList();
+
+    const auto size = shape.m_outer_top_el.size();
+    for (int i = 0; i <= size - 1; i++) {
+        auto j = i == size - 1 ? 0 : i + 1;
+        drawlist->AddQuadFilled(*(ImVec2 *)&shape.m_inner_top_el[i],
+                                *(ImVec2 *)&shape.m_inner_top_el[j],
+                                *(ImVec2 *)&shape.m_inner_bottom_el[j],
+                                *(ImVec2 *)&shape.m_inner_bottom_el[i], color);
+    }
+
+    for (int i = 0; i <= size - 1; i++) {
+        auto j = i == size - 1 ? 0 : i + 1;
+        drawlist->AddQuadFilled(*(ImVec2 *)&shape.m_outer_top_el[i],
+                                *(ImVec2 *)&shape.m_outer_top_el[j],
+                                *(ImVec2 *)&shape.m_outer_bottom_el[j],
+                                *(ImVec2 *)&shape.m_outer_bottom_el[i], color);
+    }
+
+    for (int i = 0; i <= size - 1; i++) {
+        auto j = i == size - 1 ? 0 : i + 1;
+        drawlist->AddQuadFilled(*(ImVec2 *)&shape.m_inner_top_el[i],
+                                *(ImVec2 *)&shape.m_inner_top_el[j],
+                                *(ImVec2 *)&shape.m_outer_top_el[j],
+                                *(ImVec2 *)&shape.m_outer_top_el[i], color);
+    }
+
+    for (int i = 0; i <= size - 1; i++) {
+        auto j = i == size - 1 ? 0 : i + 1;
+        drawlist->AddQuadFilled(*(ImVec2 *)&shape.m_inner_bottom_el[i],
+                                *(ImVec2 *)&shape.m_inner_bottom_el[j],
+                                *(ImVec2 *)&shape.m_outer_bottom_el[j],
+                                *(ImVec2 *)&shape.m_outer_bottom_el[i], color);
+    }
+
+    if (outline) {
+        util::path_points(shape.m_outer_top_el);
+        util::outline(color_outline);
+        util::path_points(shape.m_outer_bottom_el);
+        util::outline(color_outline);
+
+        util::path_points(shape.m_inner_top_el);
+        util::outline(color_outline);
+        util::path_points(shape.m_inner_bottom_el);
+        util::outline(color_outline);
     }
 }

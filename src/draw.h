@@ -24,6 +24,8 @@ void draw_sliced_cylinder(const Vector3f &start, const Vector3f &end,
                           float radius, const Vector3f &direction,
                           float degrees, ImU32 color, bool outline,
                           ImU32 color_outline);
+void draw_ring(const Vector3f &start, const Vector3f &end, float radius_a,
+               float radius_b, ImU32 color, bool outline, ImU32 color_outline);
 
 void draw(const Box &shape, ImU32 color, bool outline, ImU32 color_outline);
 void draw(const Sphere &shape, ImU32 color, bool outline, ImU32 color_outline);
@@ -34,6 +36,7 @@ void draw(const Cylinder &shape, ImU32 color, bool outline,
 void draw(const Capsule &shape, ImU32 color, bool outline, ImU32 color_outline);
 void draw(const SlicedCylinder &shape, ImU32 color, bool outline,
           ImU32 color_outline);
+void draw(const Ring &shape, ImU32 color, bool outline, ImU32 color_outline);
 } // namespace draw
 
 namespace draw::util {

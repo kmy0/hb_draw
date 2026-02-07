@@ -125,3 +125,14 @@ struct SlicedCylinder : CylinderBase {
     Vector3f m_eye1;
     Vector3f m_eye2;
 };
+
+struct Ring : Shape {
+    Ring(const Vector3f &start, const Vector3f &end, float radius_a,
+         float radius_b, unsigned num_segments);
+
+    std::vector<Vector2f> m_inner_top_el;
+    std::vector<Vector2f> m_inner_bottom_el;
+    std::vector<Vector2f> m_outer_top_el;
+    std::vector<Vector2f> m_outer_bottom_el;
+    unsigned m_num_segments;
+};

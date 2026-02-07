@@ -104,6 +104,7 @@ void on_lua_state_created(lua_State *l) {
     hb_draw["capsule"] = draw::draw_capsule;
     hb_draw["sliced_cylinder"] = draw::draw_sliced_cylinder;
     hb_draw["sphere"] = draw::draw_sphere;
+    hb_draw["ring"] = draw::draw_ring;
     hb_draw["set_num_segments"] = [](unsigned num) {
         g_hbdraw.imgui.num_segments = num;
     };

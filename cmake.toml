@@ -6,50 +6,50 @@
 name = "hb_draw"
 
 [target.imgui]
-type = "interface"
-sources = [
-    "deps/imgui/*.cpp",
-    "deps/imgui/backends/imgui_impl_dx12.cpp",
-    "deps/imgui/backends/imgui_impl_win32.cpp"
-]
 include-directories = ["deps/imgui", "deps/imgui/backends"]
+sources = [
+  "deps/imgui/*.cpp",
+  "deps/imgui/backends/imgui_impl_dx12.cpp",
+  "deps/imgui/backends/imgui_impl_win32.cpp",
+]
+type = "interface"
 
 [target.sol2]
-type = "interface"
 include-directories = ["deps/sol2/include"]
+type = "interface"
 
 [target.lua]
-type = "static"
-sources = ["deps/lua/*.c"]
 include-directories = ["deps/lua"]
+sources = ["deps/lua/*.c"]
+type = "static"
 
 [target.glm]
-type = "interface"
-sources = ["deps/glm/glm/**.cpp"]
 include-directories = ["deps/glm"]
+sources = ["deps/glm/glm/**.cpp"]
+type = "interface"
 
 [target.reframework]
-type = "interface"
-sources = ["deps/reframework/**.cpp"]
 headers = ["deps/reframework/**.h", "deps/reframework/**.hpp"]
 include-directories = ["deps/reframework"]
+sources = ["deps/reframework/**.cpp"]
+type = "interface"
 
 [target.hb_draw]
-type = "shared"
-sources = ["src/**.cpp"]
+compile-features = ["cxx_std_20"]
 headers = ["src/**.hpp", "src/**.h"]
 include-directories = ["src"]
 link-libraries = [
-    "lua",
-    "sol2",
-    "imgui",
-    "glm",
-    "d3d12",
-    "reframework"
+  "lua",
+  "sol2",
+  "imgui",
+  "glm",
+  "d3d12",
+  "reframework",
 ]
-compile-features = ["cxx_std_20"]
+sources = ["src/**.cpp"]
+type = "shared"
 
-cmake-after= """
+cmake-after = """
 set_target_properties(hb_draw PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY_RELEASE ../bin
 )
