@@ -7,6 +7,7 @@
 ---@field triangle fun(pos: Vector3f, extent: Vector3f, rot: Matrix4x4f, color: integer, outline: boolean, color_outline: integer)
 ---@field capsule fun(start: Vector3f, end: Vector3f, radius: number, color: integer, outline: boolean, color_outline: integer)
 ---@field sliced_cylinder fun(start: Vector3f, end: Vector3f, radius: number, direction: Vector3f, degrees: number, color: integer, outline: boolean, color_outline: integer)
+---@field ring fun(start: Vector3f, end: Vector3f, radius_a: number, radius_b: number, color: integer, outline: boolean, color_outline: integer)
 ---@field set_num_segments fun(num: integer)
 ---@field set_outline_tickness fun(num: integer)
 ---@field register fun(draw_fn: fun())
