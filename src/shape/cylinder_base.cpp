@@ -8,20 +8,22 @@
 #include <utility>
 
 CylinderBase::CylinderBase(const Vector3f &start, const Vector3f &end,
-                           float radius) {
+                           float radius, bool force_projected) {
     const auto dir = glm::normalize(end - start);
+    const auto length = glm::length(start - end);
 
-    if (!get_cap(start, dir, radius, m_top) ||
-        !get_cap(end, dir, radius, m_bottom)) {
+    if (!get_cap(start, dir, radius, force_projected, m_top) ||
+        !get_cap(end, dir, radius, force_projected, m_bottom)) {
         return;
     }
 
-    m_angle = get_angle(m_top.center, m_bottom.center) + glm::radians(90.0f);
+    m_angle = m_top.angle;
     m_is_ok = true;
 }
 
 bool CylinderBase::get_cap(const Vector3f &center, const Vector3f &dir,
-                           float radius, EllipseStruct &out) {
+                           float radius, bool force_projected,
+                           EllipseStruct &out) {
     const auto screen_radius = get_screen_radius(center, radius);
 
     if (!screen_radius) {
@@ -64,6 +66,20 @@ bool CylinderBase::get_cap(const Vector3f &center, const Vector3f &dir,
     out.major_axis.end = points3f[1];
     out.minor_axis.start = points3f[2];
     out.minor_axis.end = points3f[3];
-    out.minor_radius = out.major_radius * glm::dot(dir, view);
+
+    const auto cos_theta = glm::dot(dir, view);
+    if (radius > 5.0f) {
+        out.center = (points2f[2] + points2f[3]) * 0.5f;
+        out.minor_radius = glm::length(points2f[2] - points2f[3]) * 0.5f;
+        out.minor_radius =
+            (cos_theta < 0) ? -out.minor_radius : out.minor_radius;
+    } else if (force_projected) {
+        out.minor_radius = glm::length(points2f[2] - points2f[3]) * 0.5f;
+        out.major_radius = glm::length(points2f[0] - points2f[1]) * 0.5f;
+    } else {
+        out.minor_radius = out.major_radius * cos_theta;
+    }
+
+    out.angle = get_angle(points2f[0], points2f[1]);
     return true;
 }
