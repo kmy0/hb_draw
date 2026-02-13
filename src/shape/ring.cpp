@@ -9,15 +9,22 @@ Ring::Ring(const Vector3f &start, const Vector3f &end, float radius_a,
     : m_num_segments(num_segments) {
     radius_b = radius_b - radius_a;
 
-    auto base_inner = CylinderBase(start, end, radius_a);
+    auto base_inner = CylinderBase(start, end, radius_a, true);
     if (!base_inner.m_is_ok) {
         return;
     }
 
-    auto base_outer = CylinderBase(start, end, radius_b);
+    auto base_outer = CylinderBase(start, end, radius_b, true);
     if (!base_outer.m_is_ok) {
         return;
     }
+
+    base_outer.m_angle =
+        get_angle(base_outer.m_top.center, base_outer.m_bottom.center) +
+        glm::radians(90.0f);
+    base_inner.m_angle =
+        get_angle(base_inner.m_top.center, base_inner.m_bottom.center) +
+        glm::radians(90.0f);
 
     if (!path_ellipse(base_inner.m_top.center, base_inner.m_top.major_radius,
                       base_inner.m_top.minor_radius, base_inner.m_angle, 0,

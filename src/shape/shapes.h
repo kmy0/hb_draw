@@ -15,6 +15,7 @@ struct EllipseStruct {
     float major_radius;
     EllipseAxis major_axis;
     EllipseAxis minor_axis;
+    float angle;
 };
 
 struct Shape {
@@ -55,7 +56,8 @@ struct Triangle : Shape {
 };
 
 struct CylinderBase : Shape {
-    CylinderBase(const Vector3f &start, const Vector3f &end, float radius);
+    CylinderBase(const Vector3f &start, const Vector3f &end, float radius,
+                 bool force_projected = false);
 
     EllipseStruct m_top;
     EllipseStruct m_bottom;
@@ -63,7 +65,7 @@ struct CylinderBase : Shape {
 
   protected:
     bool get_cap(const Vector3f &center, const Vector3f &dir, float radius,
-                 EllipseStruct &out);
+                 bool force_projected, EllipseStruct &out);
 };
 
 struct Cylinder : CylinderBase {
