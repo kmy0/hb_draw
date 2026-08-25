@@ -84,20 +84,22 @@ inline Vector3f rotate_point(const Vector3f &point, const Vector3f &center,
 inline bool path_ellipse(const Vector2f &center, float radius_x, float radius_y,
                          float rot, float a_min, float a_max, int num_segments,
                          std::vector<Vector2f> &out) {
-    const auto drawlist = ImGui::GetBackgroundDrawList();
-    drawlist->PathEllipticalArcTo(*(ImVec2 *)&center,
-                                  ImVec2(radius_x, radius_y), rot, a_min, a_max,
-                                  num_segments);
-    std::vector<Vector2f> ret(drawlist->_Path.Size);
+    const float cos_rot = std::cos(rot);
+    const float sin_rot = std::sin(rot);
+    const float range = a_max - a_min;
 
-    for (size_t i = 0; i < drawlist->_Path.Size; i++) {
-        const auto im_p = drawlist->_Path.Data[i];
-        const auto p = Vector2f(im_p.x, im_p.y);
+    for (int i = 0; i <= num_segments; i++) {
+        const float angle = a_min + (range * i) / num_segments;
+        const float cx = std::cos(angle) * radius_x;
+        const float cy = std::sin(angle) * radius_y;
+        const Vector2f p = {
+            center.x + cx * cos_rot - cy * sin_rot,
+            center.y + cx * sin_rot + cy * cos_rot,
+        };
         if (!is_point_ok(p)) {
             return false;
         }
         out.push_back(p);
     }
-    drawlist->PathClear();
     return true;
 }
