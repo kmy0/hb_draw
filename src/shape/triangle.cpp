@@ -55,7 +55,7 @@ Triangle::Triangle(const Vector3f &pos, const Vector3f &extent,
             m_quads.push_back(&quad);
         }
     }
-    m_is_ok = (!m_top_triangle && !m_top_triangle) || !m_quads.empty();
+    m_is_ok = (!m_top_triangle && !m_bottom_triangle) || !m_quads.empty();
 }
 
 bool Triangle::get_triangle(const Vector3f &pos, const Matrix4x4f &rot,
