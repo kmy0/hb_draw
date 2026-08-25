@@ -69,7 +69,7 @@ void draw::util::path_points(const std::vector<Vector2f *> *points,
         return;
     }
 
-    const auto vec = *points;
+    const auto &vec = *points;
     if (reverse) {
         for (int i = size - 1; i >= 0; i--) {
             drawlist->PathLineToMergeDuplicate(*(ImVec2 *)&*vec[i]);
@@ -89,14 +89,13 @@ void draw::util::path_points(const std::vector<Vector2f> &points,
         return;
     }
 
-    const auto vec = points;
     if (reverse) {
         for (int i = size - 1; i >= 0; i--) {
-            drawlist->PathLineToMergeDuplicate(*(ImVec2 *)&vec[i]);
+            drawlist->PathLineToMergeDuplicate(*(ImVec2 *)&points[i]);
         }
     } else {
         for (size_t i = 0; i < size; i++) {
-            drawlist->PathLineToMergeDuplicate(*(ImVec2 *)&vec[i]);
+            drawlist->PathLineToMergeDuplicate(*(ImVec2 *)&points[i]);
         }
     }
 }
